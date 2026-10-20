@@ -27,4 +27,24 @@ class ZoneSprites(resources: Resources) {
     val boss = listOf(load(R.drawable.zone_boss_1), load(R.drawable.zone_boss_2))
     val heart = listOf(load(R.drawable.zone_heart_1), load(R.drawable.zone_heart_2))
     val pop = listOf(load(R.drawable.zone_pop_1), load(R.drawable.zone_pop_2), load(R.drawable.zone_pop_3))
+    val clouds = listOf(load(R.drawable.zone_cloud_1), load(R.drawable.zone_cloud_2), load(R.drawable.zone_cloud_3))
+
+    /** Ground decorations, each standing on its bottom edge. */
+    val plants = listOf(
+        load(R.drawable.zone_tree_pink),
+        load(R.drawable.zone_tree_green),
+        load(R.drawable.zone_flower),
+        load(R.drawable.zone_mushroom),
+        load(R.drawable.zone_bush),
+    )
+
+    /** One icon per shop row, in [ShopItem] order followed by the exit row. */
+    val shopIcons = listOf(
+        load(R.drawable.zone_icon_speed),
+        load(R.drawable.zone_icon_wide),
+        load(R.drawable.zone_icon_laser),
+        load(R.drawable.zone_icon_bomb),
+        load(R.drawable.zone_icon_life),
+        load(R.drawable.zone_icon_exit),
+    )
 }

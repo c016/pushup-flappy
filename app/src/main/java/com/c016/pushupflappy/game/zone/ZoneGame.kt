@@ -80,14 +80,18 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
         var flash = 0f
     }
 
-    /** Sky top, sky bottom, far hills, near hills, ground light, ground dark. */
-    private class Palette(val sky: Int, val horizon: Int, val far: Int, val near: Int, val ground: Int, val groundDark: Int)
+    /** Colours for one stage: the sky gradient, and the grass and soil of the ground. */
+    private class Palette(val sky: Int, val horizon: Int, val grass: Int, val grassLight: Int, val soil: Int, val soilDark: Int)
 
     private val palettes = listOf(
-        Palette(rgb(150, 200, 255), rgb(255, 215, 235), rgb(190, 225, 255), rgb(170, 230, 200), rgb(255, 240, 200), rgb(250, 215, 170)),
-        Palette(rgb(255, 190, 220), rgb(255, 240, 210), rgb(255, 215, 235), rgb(200, 180, 250), rgb(220, 250, 220), rgb(180, 235, 190)),
-        Palette(rgb(190, 170, 255), rgb(200, 245, 255), rgb(220, 205, 255), rgb(150, 220, 240), rgb(255, 225, 240), rgb(245, 190, 215)),
+        // Clear blue day, warm sunset, starry violet.
+        Palette(rgb(30, 90, 230), rgb(130, 195, 255), rgb(80, 200, 80), rgb(160, 240, 120), rgb(210, 150, 90), rgb(180, 120, 70)),
+        Palette(rgb(255, 110, 90), rgb(255, 215, 150), rgb(230, 140, 200), rgb(255, 200, 235), rgb(170, 110, 180), rgb(140, 85, 150)),
+        Palette(rgb(60, 30, 150), rgb(170, 130, 240), rgb(90, 200, 220), rgb(170, 245, 250), rgb(90, 90, 170), rgb(70, 70, 140)),
     )
+
+    /** Scenery placed around the loop or across a parallax band; [variant] picks the sprite. */
+    private class Prop(val x: Float, val y: Float, val variant: Int, val scale: Float)
 
     private val world = LoopingWorld(WORLD_WIDTH)
 
@@ -106,6 +110,13 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
     private var best = prefs.getInt(bestKey, 0)
 
     private val sprites = ZoneSprites(context.resources)
+
+    // Clouds live in parallax bands that repeat every CLOUD_SPAN; plants are fixed around the loop.
+    private val farClouds = List(5) { Prop(it * CLOUD_SPAN / 5 + Random.nextFloat() * 0.3f, 0.1f + Random.nextFloat() * 0.18f, it % 3, 1.3f) }
+    private val nearClouds = List(4) { Prop(it * CLOUD_SPAN / 4 + Random.nextFloat() * 0.4f, 0.42f + Random.nextFloat() * 0.15f, it % 3, 2f) }
+    private val plants = List((WORLD_WIDTH / PLANT_SPACING).toInt()) {
+        Prop(it * PLANT_SPACING + Random.nextFloat() * 0.15f, GROUND_Y + 0.015f, Random.nextInt(5), 0.9f + Random.nextFloat() * 0.5f)
+    }
     private val hud = PoseHud()
     private val sfx = SoundFx(context, options.sound)
 
@@ -161,8 +172,7 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
     private val blinkPaint = Paint().apply { alpha = 120 }
     private val skyPaint = Paint()
     private var skyKey = -1
-    private val hillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val groundPaint = Paint()
+    private val groundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val shotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = rgb(255, 120, 180) }
     private val laserPaint = Paint().apply { color = rgb(120, 220, 255) }
     private val bulletPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = rgb(150, 90, 230) }
@@ -172,14 +182,17 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
     private val radarReversePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = rgb(255, 110, 110) }
     private val radarShopPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = rgb(200, 160, 255) }
     private val radarShipPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
-    private val shadePaint = Paint().apply { color = Color.argb(150, 40, 20, 60) }
-    private val rowPaint = Paint().apply { color = Color.argb(160, 255, 255, 255) }
-    private val rowSelectedPaint = Paint().apply { color = rgb(255, 200, 90) }
-    private val rowTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = rgb(70, 50, 90)
-        isFakeBoldText = true
+    private val shadePaint = Paint().apply { color = Color.argb(170, 10, 10, 40) }
+    private val panelPaint = Paint().apply { color = rgb(20, 30, 110) }
+    private val panelBorderPaint = Paint().apply {
+        color = rgb(255, 220, 80)
+        style = Paint.Style.STROKE
     }
+    private val rowPaint = Paint().apply { color = rgb(40, 60, 170) }
+    private val rowSelectedPaint = Paint().apply { color = rgb(255, 200, 60) }
+    private val rowTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFakeBoldText = true }
     private val rect = RectF()
+    private val iconRect = RectF()
     private val path = Path()
 
     private val pace: Float get() = basePace * (1f + STAGE_PACE_STEP * (stage - 1))
@@ -687,6 +700,7 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
         // With the camera backdrop, GameView has already drawn the camera image underneath.
         if (!options.cameraBackdrop) drawScenery(canvas, width, u)
         drawGround(canvas, width, u)
+        for (p in plants) if (onScreen(p.x, 0.3f)) drawStanding(canvas, sprites.plants[p.variant], p.x, p.y, u, p.scale)
 
         val frame = (stateTime * 6f).toInt()
         for (r in reverseBalloons) {
@@ -745,40 +759,50 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
             skyPaint.shader = LinearGradient(0f, 0f, 0f, GROUND_Y * u, p.sky, p.horizon, Shader.TileMode.CLAMP)
         }
         canvas.drawRect(0f, 0f, width.toFloat(), GROUND_Y * u, skyPaint)
-        // Rolling hills, the far ones scrolling slower for depth.
-        drawHills(canvas, width, u, p.far, 0.62f, 0.08f, 0.25f, 1.7f)
-        drawHills(canvas, width, u, p.near, 0.74f, 0.07f, 0.55f, 1.1f)
+        // Two layers of fluffy clouds, the far ones drifting slower for depth.
+        drawCloudLayer(canvas, farClouds, 0.15f, u)
+        drawCloudLayer(canvas, nearClouds, 0.35f, u)
     }
 
-    private fun drawHills(canvas: Canvas, width: Int, u: Float, color: Int, top: Float, height: Float, parallax: Float, wavelength: Float) {
-        hillPaint.color = color
+    private fun drawCloudLayer(canvas: Canvas, clouds: List<Prop>, parallax: Float, u: Float) {
         val camera = (traveled - shipScreenX) * parallax
-        path.reset()
-        path.moveTo(0f, GROUND_Y * u)
-        var sx = 0f
-        while (sx <= width + 8f) {
-            val wx = sx / u + camera
-            val y = top + height * (0.5f + 0.5f * sin(wx * 2f * Math.PI.toFloat() / wavelength))
-            path.lineTo(sx, y * u)
-            sx += 8f
+        for (c in clouds) {
+            val bitmap = sprites.clouds[c.variant]
+            val halfW = bitmap.width * PIXEL * c.scale / 2f
+            // Wrap into the band, then repeat it across the screen.
+            var x = ((c.x - camera) % CLOUD_SPAN + CLOUD_SPAN) % CLOUD_SPAN - halfW
+            while (x - halfW < aspect) {
+                drawSpriteAtScreen(canvas, bitmap, x, c.y, u, c.scale)
+                x += CLOUD_SPAN
+            }
         }
-        path.lineTo(width.toFloat(), GROUND_Y * u)
-        path.close()
-        canvas.drawPath(path, hillPaint)
     }
 
-    /** A checkered strip that scrolls with the ship. */
+    /** Grass with a bumpy top over striped soil, scrolling with the ship. */
     private fun drawGround(canvas: Canvas, width: Int, u: Float) {
         val p = palette
-        val tile = 0.05f * u
-        val offset = ((traveled - shipScreenX) * u) % (tile * 2)
-        var x = -offset - tile * 2
-        var i = 0
+        val top = GROUND_Y * u
+        groundPaint.color = p.soil
+        canvas.drawRect(0f, top + 0.03f * u, width.toFloat(), u, groundPaint)
+        val stripe = 0.04f * u
+        val offset = ((traveled - shipScreenX) * u) % (stripe * 2)
+        groundPaint.color = p.soilDark
+        var x = -offset - stripe * 2
         while (x < width) {
-            groundPaint.color = if (i % 2 == 0) p.ground else p.groundDark
-            canvas.drawRect(x, GROUND_Y * u, x + tile + 1f, u, groundPaint)
-            x += tile
-            i++
+            canvas.drawRect(x, top + 0.055f * u, x + stripe, u, groundPaint)
+            x += stripe * 2
+        }
+        groundPaint.color = p.grass
+        canvas.drawRect(0f, top, width.toFloat(), top + 0.035f * u, groundPaint)
+        val bump = 0.03f * u
+        val bumpOffset = ((traveled - shipScreenX) * u) % bump
+        x = -bumpOffset - bump
+        while (x < width + bump) {
+            groundPaint.color = p.grass
+            canvas.drawCircle(x, top + 0.004f * u, bump * 0.6f, groundPaint)
+            groundPaint.color = p.grassLight
+            canvas.drawCircle(x - bump * 0.15f, top - 0.002f * u, bump * 0.25f, groundPaint)
+            x += bump
         }
     }
 
@@ -814,6 +838,20 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
         }
     }
 
+    /** Draws [bitmap] standing on [y] (its bottom edge) at world x [x]. */
+    private fun drawStanding(canvas: Canvas, bitmap: Bitmap, x: Float, y: Float, u: Float, scale: Float) {
+        val h = bitmap.height * PIXEL * scale
+        drawSprite(canvas, bitmap, x, y - h / 2f, u, scale = scale)
+    }
+
+    /** Draws [bitmap] centred at screen position ([sx], [y]) in world units, for parallax layers. */
+    private fun drawSpriteAtScreen(canvas: Canvas, bitmap: Bitmap, sx: Float, y: Float, u: Float, scale: Float) {
+        val halfW = bitmap.width * PIXEL * scale * u / 2f
+        val halfH = bitmap.height * PIXEL * scale * u / 2f
+        rect.set(sx * u - halfW, y * u - halfH, sx * u + halfW, y * u + halfH)
+        canvas.drawBitmap(bitmap, null, rect, spritePaint)
+    }
+
     private fun drawHud(canvas: Canvas, width: Int, u: Float) {
         val cx = width / 2f
         hud.drawCornerStats(canvas, u, options.tapMode, detector.reps, best)
@@ -833,8 +871,8 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
                 lines.forEachIndexed { i, line -> hud.drawText(canvas, line, cx, (0.42f + 0.075f * i) * u, 0.047f * u) }
             }
             State.PLAYING -> {
-                hud.drawText(canvas, "SCORE %07d".format(score), cx, 0.08f * u, 0.055f * u)
-                hud.drawText(canvas, "COIN $coins   STAGE $stage   残り $lives", cx, 0.14f * u, 0.04f * u)
+                hud.drawText(canvas, "SCORE %07d    TOP %07d".format(score, maxOf(score, best)), cx, 0.08f * u, 0.05f * u)
+                drawCoinsAndLives(canvas, cx, 0.14f, u)
                 drawRadar(canvas, cx, u)
                 when (phase) {
                     Phase.BASES -> if (phaseTime < 2.5f) hud.drawText(canvas, "STAGE $stage", cx, 0.42f * u, 0.09f * u)
@@ -853,6 +891,13 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
                 if (stateTime > RESTART_DELAY_SEC) hud.drawText(canvas, "${action}でもう一度", cx, 0.66f * u, 0.055f * u)
             }
         }
+    }
+
+    /** Coin count with a coin icon, then one small ship per remaining life. */
+    private fun drawCoinsAndLives(canvas: Canvas, cx: Float, y: Float, u: Float) {
+        drawSpriteAtScreen(canvas, sprites.coin[0], cx / u - 0.25f, y - 0.012f, u, 1.4f)
+        hud.drawText(canvas, "$coins", cx - 0.21f * u, y * u, 0.042f * u, Paint.Align.LEFT)
+        for (i in 0 until lives.coerceAtMost(6)) drawSpriteAtScreen(canvas, sprites.ship[0], cx / u + 0.08f + i * 0.085f, y - 0.012f, u, 0.55f)
     }
 
     /** The whole loop as a bar: bases, reverse balloons, the shop and the ship with its heading. */
@@ -881,32 +926,48 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
     private fun drawShop(canvas: Canvas, width: Int, u: Float) {
         val cx = width / 2f
         canvas.drawRect(0f, 0f, width.toFloat(), u, shadePaint)
-        hud.drawText(canvas, "SHOP", cx, 0.12f * u, 0.08f * u)
-        hud.drawText(canvas, "COIN $coins", cx, 0.19f * u, 0.05f * u)
+        val w = 1.0f * u
+        rect.set(cx - w / 2, 0.04f * u, cx + w / 2, 0.86f * u)
+        canvas.drawRoundRect(rect, 0.03f * u, 0.03f * u, panelPaint)
+        panelBorderPaint.strokeWidth = 0.008f * u
+        canvas.drawRoundRect(rect, 0.03f * u, 0.03f * u, panelBorderPaint)
+        hud.drawText(canvas, "SHOP", cx, 0.13f * u, 0.075f * u)
+        drawSpriteAtScreen(canvas, sprites.coin[0], cx / u - 0.1f, 0.19f, u, 1.4f)
+        hud.drawText(canvas, "$coins", cx - 0.06f * u, 0.205f * u, 0.045f * u, Paint.Align.LEFT)
 
         val rows = shopRows()
         val top = 0.24f * u
-        val rowH = 0.6f * u / rows
-        val w = 0.9f * u
-        rowTextPaint.textSize = rowH * 0.5f
+        val rowH = 0.58f * u / rows
+        val rowW = 0.9f * u
+        rowTextPaint.textSize = rowH * 0.48f
         for (i in 0 until rows) {
-            rect.set(cx - w / 2, top + i * rowH + 3f, cx + w / 2, top + (i + 1) * rowH - 3f)
-            canvas.drawRoundRect(rect, 12f, 12f, if (i == shopCursor) rowSelectedPaint else rowPaint)
+            val selected = i == shopCursor
+            rect.set(cx - rowW / 2, top + i * rowH + 4f, cx + rowW / 2, top + (i + 1) * rowH - 4f)
+            canvas.drawRoundRect(rect, 10f, 10f, if (selected) rowSelectedPaint else rowPaint)
+            val textColor = if (selected) rgb(60, 30, 0) else Color.WHITE
+            val iconSize = rowH * 0.7f
+            val icon = sprites.shopIcons[i]
+            val iconTop = rect.centerY() - iconSize / 2
+            iconRect.set(rect.left + 16f, iconTop, rect.left + 16f + iconSize, iconTop + iconSize)
+            canvas.drawBitmap(icon, null, iconRect, spritePaint)
+            val textY = rect.centerY() + rowTextPaint.textSize * 0.35f
             val label = if (i < ShopItem.entries.size) {
                 val item = ShopItem.entries[i]
                 val price = if (shop.isSoldOut(item)) "SOLD OUT" else "${shop.price(item)}"
+                rowTextPaint.color = if (!shop.isSoldOut(item) && shop.price(item) > coins && !selected) rgb(150, 160, 210) else textColor
                 rowTextPaint.textAlign = Paint.Align.RIGHT
-                canvas.drawText(price, rect.right - 20f, rect.centerY() + rowTextPaint.textSize * 0.35f, rowTextPaint)
+                canvas.drawText(price, rect.right - 20f, textY, rowTextPaint)
                 val owned = shop.level(item)
                 if (owned > 0 && item != ShopItem.EXTRA_LIFE) "${item.label}（${owned}）" else item.label
             } else {
                 "ショップを出る"
             }
+            rowTextPaint.color = textColor
             rowTextPaint.textAlign = Paint.Align.LEFT
-            canvas.drawText(label, rect.left + 20f, rect.centerY() + rowTextPaint.textSize * 0.35f, rowTextPaint)
+            canvas.drawText(label, iconRect.right + 16f, textY, rowTextPaint)
         }
         val how = if (options.tapMode) "ドラッグで選んでタップで決定" else "光っている項目で腕立てすると決定"
-        hud.drawText(canvas, shopMessage.ifEmpty { how }, cx, 0.9f * u, 0.045f * u)
+        hud.drawText(canvas, shopMessage.ifEmpty { how }, cx, 0.93f * u, 0.045f * u)
     }
 
     private companion object {
@@ -916,6 +977,8 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
         const val PIXEL = 0.005f
 
         const val WORLD_WIDTH = 8f
+        const val CLOUD_SPAN = 4f
+        const val PLANT_SPACING = 0.45f
         const val GROUND_Y = 0.9f
         const val SHIP_RADIUS = 0.025f
         const val SHIP_TOP = 0.08f
@@ -941,7 +1004,7 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
         const val STAGE_PACE_STEP = 0.15f
         const val BASE_COUNT = 6
         const val BASE_HP = 12
-        const val BASE_RADIUS = 0.06f
+        const val BASE_RADIUS = 0.085f
         const val BASE_POINTS = 1000
         const val BASE_COINS = 5
         const val BASE_COIN_VALUE = 200

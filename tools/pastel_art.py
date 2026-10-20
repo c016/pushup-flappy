@@ -20,6 +20,13 @@ C = {
     'c': (130, 220, 255),
     'g': (140, 220, 120), 'G': (200, 245, 180),
     'd': (40, 30, 60),
+    's': (225, 235, 250), 'S': (180, 205, 245), 'K': (150, 180, 235),   # cloud shading and soft outline
+    'e': (230, 60, 70), 'E': (160, 30, 50),                              # ship red
+    'f': (255, 210, 60), 'F': (255, 240, 150), 'h': (215, 150, 30),      # ship wings
+    'a': (250, 140, 40),                                                 # feet
+    't': (150, 100, 60), 'T': (110, 70, 40),                             # trunks
+    'j': (90, 200, 90), 'J': (160, 240, 120), 'i': (50, 140, 70),        # leaves
+    'x': (40, 80, 200), 'X': (90, 140, 255), 'z': (255, 90, 160), 'Z': (255, 180, 220),
 }
 
 
@@ -215,6 +222,135 @@ def pop(stage):
     return g
 
 
+
+def ship_v2(wing_up):
+    """White round pod with a red band, yellow wings on top and little feet, facing right."""
+    g = grid(30, 28)
+    ellipse(g, 14, 15, 10, 8.5, 'w')
+    ellipse(g, 14, 19, 10, 8.5, 'S', lambda x, y: y > 19)
+    rect(g, 4, 14, 24, 15, 'e')
+    ellipse(g, 19, 12, 3.6, 3, 'c')
+    ellipse(g, 18.3, 11.2, 1.3, 1, 'w')
+    g = outline(g)
+    # Wings behind the body: up or swept back.
+    if wing_up:
+        polygon(g, [(6, 9), (3, 1), (9, 3), (12, 8)], 'f', under=True)
+        polygon(g, [(12, 8), (12, 0), (17, 3), (17, 8)], 'F', under=True)
+    else:
+        polygon(g, [(5, 10), (0, 5), (8, 5), (12, 8)], 'f', under=True)
+        polygon(g, [(12, 8), (15, 2), (19, 5), (17, 8)], 'F', under=True)
+    # Feet.
+    rect(g, 9, 24, 11, 26, 'a')
+    rect(g, 16, 24, 18, 26, 'a')
+    return outline(g)
+
+
+def generator(lit):
+    """An enemy base: a floating dome with a glowing eye, antenna and petal-like vents."""
+    g = grid(40, 42)
+    rect(g, 19, 1, 20, 7, 'u')
+    ellipse(g, 19.5, 2, 2.2, 2.2, 'y' if lit else 'o')
+    for dx in (-13, -7, 7, 13):
+        ellipse(g, 20 + dx, 30, 4, 7, 'z' if abs(dx) > 10 else 'Z')
+    ellipse(g, 20, 20, 15, 13, 'l')
+    ellipse(g, 20, 16, 13, 8, 'L', lambda x, y: y < 15)
+    ellipse(g, 20, 27, 15, 6, 'u', lambda x, y: y > 27)
+    for x in (9, 15, 25, 31):
+        ellipse(g, x, 25, 1.4, 1.4, 'y' if lit else 'Y')
+    g = outline(g)
+    ellipse(g, 20, 19, 6, 5, 'k'); ellipse(g, 20, 19, 5, 4, 'w')
+    ellipse(g, 21 if lit else 19, 19, 2.4, 2.6, 'e')
+    ellipse(g, 20.5 if lit else 18.5, 18, 0.9, 0.9, 'w')
+    return g
+
+
+def soft_cloud(w, h, seed):
+    """A big fluffy cloud with soft blue shading and no dark outline."""
+    import random
+    rnd = random.Random(seed)
+    g = grid(w, h)
+    bumps = [(rnd.uniform(w * 0.2, w * 0.8), rnd.uniform(h * 0.42, h * 0.62), rnd.uniform(h * 0.16, h * 0.36)) for _ in range(9)]
+    bumps += [(w * 0.18, h * 0.65, h * 0.3), (w * 0.82, h * 0.65, h * 0.3)]
+    for cx, cy, r in bumps:
+        ellipse(g, cx, cy, r * 1.2, r, 'w', lambda x, y: y < h - 2)
+    for cx, cy, r in bumps:
+        ellipse(g, cx, cy + r * 0.45, r * 1.1, r * 0.7, 's', lambda x, y, cy=cy: y > cy + 1 and g[y][x] == 'w')
+    rect_bottom = [(x, h - 3) for x in range(w)]
+    for x, y in rect_bottom:
+        if g[y - 1][x] != '.':
+            g[y][x] = 'S'
+    out = [r[:] for r in g]
+    for y in range(h):
+        for x in range(w):
+            if g[y][x] == '.' and any(0 <= y + dy < h and 0 <= x + dx < w and g[y + dy][x + dx] != '.'
+                                      for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                out[y][x] = 'K'
+    return out
+
+
+def round_tree(color, light):
+    g = grid(26, 40)
+    polygon(g, [(11, 39), (12, 18), (15, 18), (16, 39)], 't')
+    rect(g, 12, 18, 12, 39, 'T')
+    ellipse(g, 13, 12, 12, 11, color)
+    ellipse(g, 10, 8, 6, 5, light)
+    ellipse(g, 8, 6, 2, 1.5, 'w')
+    return outline(g)
+
+
+def tall_flower():
+    g = grid(22, 44)
+    rect(g, 10, 14, 11, 43, 'i')
+    ellipse(g, 6, 30, 5, 2.5, 'j'); ellipse(g, 15, 36, 5, 2.5, 'j')
+    for i, (dx, dy) in enumerate(((0, -6), (6, 0), (0, 6), (-6, 0), (4, -4), (4, 4), (-4, 4), (-4, -4))):
+        ellipse(g, 10.5 + dx, 10 + dy, 4, 4, 'y' if i < 4 else 'F')
+    ellipse(g, 10.5, 10, 4, 4, 'o')
+    return outline(g)
+
+
+def mushroom_plant():
+    g = grid(24, 30)
+    polygon(g, [(9, 29), (10, 14), (14, 14), (15, 29)], 'w')
+    ellipse(g, 12, 12, 11, 8, 'x', lambda x, y: y < 14)
+    ellipse(g, 12, 9, 9, 5, 'X', lambda x, y: y < 10)
+    for cx, cy in ((7, 8), (13, 5), (17, 10)):
+        ellipse(g, cx, cy, 1.6, 1.4, 'w')
+    return outline(g)
+
+
+def bush():
+    g = grid(28, 14)
+    for cx, r in ((7, 6), (14, 7), (21, 6)):
+        ellipse(g, cx, 13, r, r, 'j')
+        ellipse(g, cx - 1, 10, r * 0.5, r * 0.35, 'J')
+    return outline(g)
+
+
+def icon(kind):
+    """12x12 shop item icons."""
+    g = grid(14, 14)
+    if kind == 'speed':
+        polygon(g, [(2, 9), (6, 2), (12, 4), (8, 9)], 'f'); polygon(g, [(2, 12), (8, 9), (12, 11)], 'F')
+    elif kind == 'wide':
+        for dy in (-4, 0, 4):
+            rect(g, 2, 6 + dy, 9, 7 + dy, 'z')
+            g[6 + dy][10] = 'z'; g[7 + dy][10] = 'z'
+    elif kind == 'laser':
+        rect(g, 1, 6, 12, 7, 'c'); rect(g, 1, 5, 4, 8, 'X')
+    elif kind == 'bomb':
+        ellipse(g, 7, 8, 5, 5, 'd'); ellipse(g, 5.5, 6.5, 1.4, 1.2, 'B'); rect(g, 7, 1, 8, 3, 'o')
+    elif kind == 'life':
+        ellipse(g, 7, 7, 5, 4.5, 'w'); rect(g, 2, 7, 12, 7, 'e'); ellipse(g, 9, 5.5, 1.6, 1.3, 'c')
+    elif kind == 'exit':
+        polygon(g, [(2, 7), (7, 2), (7, 5), (12, 5), (12, 9), (7, 9), (7, 12)], 'L')
+    return outline(g)
+
+
+def hud_coin():
+    g = grid(12, 12)
+    ellipse(g, 6, 6, 5, 5, 'y'); ellipse(g, 6, 6, 3, 3, 'Y'); rect(g, 6, 3, 6, 8, 'o')
+    return outline(g)
+
 if __name__ == '__main__':
     for i in range(2):
         save(ship(i == 0), f'zone_ship_{i + 1}')
@@ -224,6 +360,18 @@ if __name__ == '__main__':
         save(coin(i == 1), f'zone_coin_{i + 1}')
         save(boss(i == 1), f'zone_boss_{i + 1}')
         save(heart(i == 0), f'zone_heart_{i + 1}')
+    for i in range(2):
+        save(ship_v2(i == 0), f'zone_ship_{i + 1}')
+        save(generator(i == 0), f'zone_base_{i + 1}')
+    for i in range(3):
+        save(soft_cloud(56, 32, i + 1), f'zone_cloud_{i + 1}')
+    save(round_tree('p', 'P'), 'zone_tree_pink')
+    save(round_tree('j', 'J'), 'zone_tree_green')
+    save(tall_flower(), 'zone_flower')
+    save(mushroom_plant(), 'zone_mushroom')
+    save(bush(), 'zone_bush')
+    for kind in ('speed', 'wide', 'laser', 'bomb', 'life', 'exit'):
+        save(icon(kind), f'zone_icon_{kind}')
     save(reverse_balloon(), 'zone_reverse')
     save(shop_balloon(), 'zone_shop')
     save(bomb(), 'zone_bomb')
