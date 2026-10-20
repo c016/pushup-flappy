@@ -12,7 +12,7 @@
         android:right="14dp"
         android:top="14dp">
         <bitmap
-            android:filter="true"
-            android:src="@drawable/tappy_plane_1" />
+            android:filter="false"
+            android:src="@drawable/classic_bird_2" />
     </item>
 </layer-list>

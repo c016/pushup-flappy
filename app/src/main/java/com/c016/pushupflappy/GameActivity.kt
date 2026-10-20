@@ -18,6 +18,7 @@ import com.c016.pushupflappy.game.Difficulty
 import com.c016.pushupflappy.game.GameCatalog
 import com.c016.pushupflappy.game.GameOptions
 import com.c016.pushupflappy.game.GameView
+import com.c016.pushupflappy.game.VisualTheme
 import com.c016.pushupflappy.pose.MediaPipePoseEstimator
 import com.c016.pushupflappy.pose.PoseEstimator
 
@@ -53,6 +54,8 @@ class GameActivity : AppCompatActivity() {
             tapMode = intent.getBooleanExtra(EXTRA_TAP_MODE, false),
             controlMode = intent.getStringExtra(EXTRA_CONTROL_MODE)
                 ?.let { runCatching { ControlMode.valueOf(it) }.getOrNull() } ?: ControlMode.FLAP,
+            theme = intent.getStringExtra(EXTRA_THEME)
+                ?.let { runCatching { VisualTheme.valueOf(it) }.getOrNull() } ?: VisualTheme.CLASSIC,
         )
         gameView = GameView(this, info.create(this, options))
         setContentView(gameView)
@@ -94,5 +97,6 @@ class GameActivity : AppCompatActivity() {
         const val EXTRA_DIFFICULTY = "difficulty"
         const val EXTRA_TAP_MODE = "tap_mode"
         const val EXTRA_CONTROL_MODE = "control_mode"
+        const val EXTRA_THEME = "theme"
     }
 }

@@ -33,4 +33,18 @@ enum class ControlMode {
     LINKED,
 }
 
-data class GameOptions(val difficulty: Difficulty, val tapMode: Boolean, val controlMode: ControlMode)
+/** Visual theme for games that offer more than one look. */
+enum class VisualTheme {
+    /** Pixel art in the style of the classic game. */
+    CLASSIC,
+
+    /** Kenney's CC0 sprite packs. */
+    KENNEY,
+}
+
+data class GameOptions(
+    val difficulty: Difficulty,
+    val tapMode: Boolean,
+    val controlMode: ControlMode,
+    val theme: VisualTheme,
+)

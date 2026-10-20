@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.c016.pushupflappy.game.ControlMode
 import com.c016.pushupflappy.game.Difficulty
 import com.c016.pushupflappy.game.GameCatalog
+import com.c016.pushupflappy.game.VisualTheme
 
 /** Game menu: lists every game in [GameCatalog] with shared difficulty and input options. */
 class MainActivity : AppCompatActivity() {
@@ -23,6 +24,7 @@ class MainActivity : AppCompatActivity() {
         val list = findViewById<LinearLayout>(R.id.game_list)
         val difficulty = findViewById<RadioGroup>(R.id.difficulty)
         val controlMode = findViewById<RadioGroup>(R.id.control_mode)
+        val theme = findViewById<RadioGroup>(R.id.theme)
         val tapMode = findViewById<CheckBox>(R.id.tap_mode)
         val density = resources.displayMetrics.density
 
@@ -45,6 +47,11 @@ class MainActivity : AppCompatActivity() {
                                 GameActivity.EXTRA_CONTROL_MODE,
                                 if (controlMode.checkedRadioButtonId == R.id.control_linked) ControlMode.LINKED.name
                                 else ControlMode.FLAP.name,
+                            )
+                            .putExtra(
+                                GameActivity.EXTRA_THEME,
+                                if (theme.checkedRadioButtonId == R.id.theme_kenney) VisualTheme.KENNEY.name
+                                else VisualTheme.CLASSIC.name,
                             )
                     )
                 }

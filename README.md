@@ -47,15 +47,20 @@ app/src/main/java/com/c016/pushupflappy/
     ├── GameCatalog.kt       メニューに出すゲームの一覧
     ├── GameView.kt          ゲームループ（SurfaceView）
     ├── PoseOverlay.kt       カメラ映像と骨格の表示
-    └── flappy/FlappyGame.kt
+    └── flappy/              FlappyGame（ゲーム本体）とテーマ（*Skin）
 ```
 
 - **ゲームを追加する**: `MiniGame` を実装し、`GameCatalog.games` に登録します。動作判定は `motion/` に検出器として追加します。
 - **姿勢推定エンジンを変える**: `PoseEstimator` を実装します（例: RTMPose + ONNX Runtime）。出力はMediaPipeの33点の番号に合わせます。
 
-## 素材
+## 見た目（テーマ）
 
-グラフィックには [Kenney](https://kenney.nl/) の「[Tappy Plane](https://kenney.nl/assets/tappy-plane)」パックの素材（CC0）を使っています（`app/src/main/res/drawable-nodpi/tappy_*.png`）。ライセンスは `licenses/kenney-tappy-plane-CC0.txt` を参照してください。
+メニューで切り替えられます。
+
+- **クラシック**（デフォルト）: Flappy Bird風のドット絵。鳥、土管、背景、数字などはこのリポジトリ用に新しく描いたもので、本家の画像ファイルは使っていません。`tools/classic_art.py` で生成しています（`python3 tools/classic_art.py`、Pillowが必要）。
+- **Tappy Plane**: [Kenney](https://kenney.nl/) の「[Tappy Plane](https://kenney.nl/assets/tappy-plane)」パックの素材（CC0）です。ライセンスは `licenses/kenney-tappy-plane-CC0.txt` を参照してください。
+
+テーマごとの描画と障害物の形（当たり判定）は `game/flappy/FlappySkin.kt` を継承したクラス（`ClassicSkin`、`TappySkin`）にまとまっています。
 
 ## ビルド
 
