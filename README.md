@@ -1,0 +1,55 @@
+# 腕立てFlappy
+
+腕立て伏せ1回で鳥が羽ばたく、Flappy Bird風のAndroidゲームです。スマホのインカメラと [MediaPipe Pose Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker) で体の動きを検知します。今後、姿勢検知を使ったミニゲームを追加していける構成になっています。
+
+## インストール
+
+1. GitHubの [Actions](../../actions/workflows/build.yml) で最新の成功したビルドを開きます。
+2. Artifacts の `pushup-flappy-apk` をダウンロードして展開し、`app-debug.apk` をスマホに入れます。
+3. スマホで「提供元不明のアプリ」のインストールを許可して、APKを開きます。
+
+`v0.1.0` のようなタグをpushすると、APKを添付したReleaseが作られます。スマホから直接ダウンロードしたいときはこちらが便利です。
+
+固定のデバッグ署名鍵（`app/keystore/debug.keystore`）で署名しているので、新しいビルドは前のバージョンに上書きインストールできます。
+
+## 遊び方
+
+1. スマホを床に立てかけ、インカメラに上半身（肩）が映るようにします。顔の前に置いても、体の横に置いてもかまいません。
+2. 腕立て伏せを1回するとゲームが始まります。
+3. 体を下ろして上げるたびに鳥が羽ばたきます。土管にぶつからないように進みます。
+
+- 右上には、カメラ映像と検出した骨格が表示されます。
+- 左のゲージは体の高さを表します。オレンジは体を下ろした状態、緑は上げた状態です。
+- 体が映らなくなると一時停止します。
+- メニューの「タップ操作モード」を使うと、カメラなしで画面タップで遊べます。動作確認用です。
+
+## 構成
+
+```
+app/src/main/java/com/c016/pushupflappy/
+├── MainActivity.kt          ゲーム選択メニュー
+├── GameActivity.kt          カメラ・姿勢推定・ゲームを接続
+├── camera/PoseCamera.kt     CameraX → 正立・左右反転した画像
+├── pose/
+│   ├── Pose.kt              ランドマーク（MediaPipeの33点形式）
+│   ├── PoseEstimator.kt     姿勢推定エンジンのインターフェース
+│   └── MediaPipePoseEstimator.kt
+├── motion/PushUpDetector.kt 肩の高さから腕立て回数を数える
+└── game/
+    ├── MiniGame.kt          ミニゲームのインターフェース
+    ├── GameCatalog.kt       メニューに出すゲームの一覧
+    ├── GameView.kt          ゲームループ（SurfaceView）
+    ├── PoseOverlay.kt       カメラ映像と骨格の表示
+    └── flappy/FlappyGame.kt
+```
+
+- **ゲームを追加する**: `MiniGame` を実装し、`GameCatalog.games` に登録します。動作判定は `motion/` に検出器として追加します。
+- **姿勢推定エンジンを変える**: `PoseEstimator` を実装します（例: RTMPose + ONNX Runtime）。出力はMediaPipeの33点の番号に合わせます。
+
+## ビルド
+
+```
+./gradlew assembleDebug
+```
+
+JDK 17とAndroid SDK（compileSdk 35）が必要です。姿勢推定モデル（`pose_landmarker_lite.task`）は、初回ビルド時に自動でダウンロードされます。
