@@ -30,6 +30,9 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
 
     private class Pipe(var x: Float, val gapY: Float, var passed: Boolean = false)
 
+    /** Scenery that scrolls past: ground props and clouds. */
+    private class Scenery(var x: Float, val y: Float, val size: Float, val variant: Int)
+
     private class Tuning(flapIntervalSec: Float, val gap: Float) {
         // Choose gravity and flap speed so that flapping every flapIntervalSec keeps the bird
         // level, swinging up and down by AMPLITUDE: g = 8A/T^2, v = gT/2.
@@ -60,26 +63,19 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
     private var sinceFlap = 10f
     private val pipes = mutableListOf<Pipe>()
     private var groundOffset = 0f
+    private val props = mutableListOf<Scenery>()
+    private val clouds = mutableListOf<Scenery>()
 
     /** Seconds since the body was last seen; the game pauses while it is out of view. */
     private var unseenSec = 0f
 
+    private val sprites = FlappySprites(context.resources)
+
     // Paint objects are reused every frame.
     private val skyPaint = Paint()
     private var skyHeight = -1
-    private val pipePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(94, 189, 62) }
-    private val pipeEdgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(40, 110, 30)
-        style = Paint.Style.STROKE
-    }
-    private val groundPaint = Paint().apply { color = Color.rgb(222, 216, 149) }
-    private val grassPaint = Paint().apply { color = Color.rgb(115, 191, 46) }
-    private val stripePaint = Paint().apply { color = Color.rgb(98, 166, 36) }
-    private val birdPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(248, 208, 48) }
-    private val wingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(255, 245, 220) }
-    private val beakPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(240, 112, 32) }
-    private val whitePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
-    private val blackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
+    private val spritePaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+    private val cloudPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(235, 255, 255, 255) }
     private val shadePaint = Paint().apply { color = Color.argb(140, 0, 0, 0) }
     private val gaugeBackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(120, 0, 0, 0) }
     private val gaugePaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -138,7 +134,7 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         if (options.tapMode || detector.bodyVisible) unseenSec = 0f else unseenSec += dtSec
         if (state == State.PLAYING && isPaused()) return
 
-        if (state != State.GAME_OVER) groundOffset = (groundOffset + SCROLL_SPEED * dtSec) % STRIPE_WIDTH
+        if (state != State.GAME_OVER) scrollScenery(dtSec)
 
         when (state) {
             State.READY -> birdY = 0.45f + 0.03f * sin(stateTime * 3f)
@@ -147,6 +143,27 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
                 birdVy = min(birdVy + tuning.gravity * 3f * dtSec, tuning.maxFallSpeed * 3f)
                 birdY = min(birdY + birdVy * dtSec, GROUND_Y - BIRD_RADIUS)
             }
+        }
+    }
+
+    private fun scrollScenery(dt: Float) {
+        groundOffset = (groundOffset + SCROLL_SPEED * dt) % GROUND_TILE
+        for (prop in props) prop.x -= SCROLL_SPEED * dt
+        for (cloud in clouds) cloud.x -= SCROLL_SPEED * CLOUD_PARALLAX * dt
+        props.removeAll { it.x + it.size < 0f }
+        clouds.removeAll { it.x + it.size * 2f < 0f }
+        fillScenery()
+    }
+
+    /** Keeps the visible width (plus a margin) populated with props and clouds. */
+    private fun fillScenery() {
+        while ((props.lastOrNull()?.x ?: -0.2f) < aspect + 0.2f) {
+            val x = (props.lastOrNull()?.x ?: -0.2f) + 0.25f + Random.nextFloat() * 0.6f
+            props.add(Scenery(x, GROUND_Y, 0.11f + Random.nextFloat() * 0.06f, Random.nextInt(sprites.props.size)))
+        }
+        while ((clouds.lastOrNull()?.x ?: -0.4f) < aspect + 0.4f) {
+            val x = (clouds.lastOrNull()?.x ?: -0.4f) + 0.5f + Random.nextFloat() * 0.6f
+            clouds.add(Scenery(x, 0.08f + Random.nextFloat() * 0.3f, 0.04f + Random.nextFloat() * 0.03f, 0))
         }
     }
 
@@ -207,10 +224,14 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         val u = height.toFloat()
         aspect = width / u
 
+        if (props.isEmpty()) fillScenery()
+
         drawBackground(canvas, width, height)
+        for (cloud in clouds) drawCloud(canvas, cloud, u)
+        for (prop in props) drawProp(canvas, prop, u)
         for (pipe in pipes) drawPipe(canvas, pipe, u)
         drawGround(canvas, width, u)
-        drawBird(canvas, u)
+        drawBee(canvas, u)
         drawHud(canvas, width, u)
     }
 
@@ -225,61 +246,87 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), skyPaint)
     }
 
+    private fun drawCloud(canvas: Canvas, cloud: Scenery, u: Float) {
+        val x = cloud.x * u
+        val y = cloud.y * u
+        val r = cloud.size * u
+        canvas.drawCircle(x, y, r, cloudPaint)
+        canvas.drawCircle(x + r * 1.1f, y - r * 0.4f, r * 1.3f, cloudPaint)
+        canvas.drawCircle(x + r * 2.3f, y, r, cloudPaint)
+        rect.set(x, y - r * 0.2f, x + r * 2.3f, y + r)
+        canvas.drawRect(rect, cloudPaint)
+    }
+
+    private fun drawProp(canvas: Canvas, prop: Scenery, u: Float) {
+        // Sink props slightly into the grass so they look planted.
+        val bottom = (prop.y + 0.012f) * u
+        rect.set(prop.x * u, bottom - prop.size * u, (prop.x + prop.size) * u, bottom)
+        canvas.drawBitmap(sprites.props[prop.variant], null, rect, spritePaint)
+    }
+
+    /** A stone column above and below the gap, built from square tiles PIPE_WIDTH wide. */
     private fun drawPipe(canvas: Canvas, pipe: Pipe, u: Float) {
         val left = pipe.x * u
         val right = (pipe.x + PIPE_WIDTH) * u
+        val tile = PIPE_WIDTH * u
         val gapTop = (pipe.gapY - tuning.gap / 2f) * u
         val gapBottom = (pipe.gapY + tuning.gap / 2f) * u
-        val capHeight = 0.05f * u
-        val capOverhang = 0.015f * u
-        pipeEdgePaint.strokeWidth = 0.006f * u
 
-        rect.set(left, 0f, right, gapTop)
-        canvas.drawRect(rect, pipePaint)
-        canvas.drawRect(rect, pipeEdgePaint)
-        rect.set(left - capOverhang, gapTop - capHeight, right + capOverhang, gapTop)
-        canvas.drawRect(rect, pipePaint)
-        canvas.drawRect(rect, pipeEdgePaint)
+        // Lower column: cap on top, body tiles down to (and hidden by) the ground.
+        rect.set(left, gapBottom, right, gapBottom + tile)
+        canvas.drawBitmap(sprites.columnCap, null, rect, spritePaint)
+        var y = gapBottom + tile
+        while (y < GROUND_Y * u) {
+            rect.set(left, y, right, y + tile)
+            canvas.drawBitmap(sprites.columnBody, null, rect, spritePaint)
+            y += tile
+        }
 
-        rect.set(left, gapBottom, right, GROUND_Y * u)
-        canvas.drawRect(rect, pipePaint)
-        canvas.drawRect(rect, pipeEdgePaint)
-        rect.set(left - capOverhang, gapBottom, right + capOverhang, gapBottom + capHeight)
-        canvas.drawRect(rect, pipePaint)
-        canvas.drawRect(rect, pipeEdgePaint)
+        // Upper column: cap flipped upside down at the gap, body tiles up to the top edge.
+        y = gapTop - tile
+        while (y > 0f) {
+            y -= tile
+            rect.set(left, y, right, y + tile)
+            canvas.drawBitmap(sprites.columnBody, null, rect, spritePaint)
+        }
+        canvas.save()
+        canvas.scale(1f, -1f, 0f, gapTop - tile / 2f)
+        rect.set(left, gapTop - tile, right, gapTop)
+        canvas.drawBitmap(sprites.columnCap, null, rect, spritePaint)
+        canvas.restore()
     }
 
     private fun drawGround(canvas: Canvas, width: Int, u: Float) {
         val top = GROUND_Y * u
-        canvas.drawRect(0f, top, width.toFloat(), u, groundPaint)
-        canvas.drawRect(0f, top, width.toFloat(), top + 0.03f * u, grassPaint)
+        val tile = GROUND_TILE * u
         var x = -groundOffset * u
         while (x < width) {
-            canvas.drawRect(x, top, x + STRIPE_WIDTH * u / 2f, top + 0.03f * u, stripePaint)
-            x += STRIPE_WIDTH * u
+            var y = top
+            while (y < u) {
+                rect.set(x, y, x + tile + 1f, y + tile)
+                canvas.drawBitmap(sprites.groundTop, null, rect, spritePaint)
+                y += tile
+            }
+            x += tile
         }
     }
 
-    private fun drawBird(canvas: Canvas, u: Float) {
+    private fun drawBee(canvas: Canvas, u: Float) {
         val cx = BIRD_X * u
         val cy = birdY * u
-        val r = BIRD_RADIUS * u
+        val half = BIRD_RADIUS * BEE_SPRITE_SCALE * u
         val tilt = when (state) {
             State.READY -> 0f
             else -> (birdVy / tuning.maxFallSpeed * 45f).coerceIn(-25f, 80f)
         }
+        // Squash and stretch for a moment after each flap.
+        val squash = if (sinceFlap < FLAP_ANIM_SEC) 1f - 0.18f * (1f - sinceFlap / FLAP_ANIM_SEC) else 1f
 
         canvas.save()
         canvas.rotate(tilt, cx, cy)
-        canvas.drawCircle(cx, cy, r, birdPaint)
-        // The wing snaps up right after a flap, then settles.
-        val wingLift = if (sinceFlap < 0.25f) -0.5f * r else 0.1f * r
-        rect.set(cx - r * 0.95f, cy - r * 0.15f + wingLift, cx - r * 0.05f, cy + r * 0.4f + wingLift)
-        canvas.drawOval(rect, wingPaint)
-        canvas.drawCircle(cx + r * 0.4f, cy - r * 0.35f, r * 0.33f, whitePaint)
-        canvas.drawCircle(cx + r * 0.5f, cy - r * 0.35f, r * 0.14f, blackPaint)
-        rect.set(cx + r * 0.55f, cy - r * 0.05f, cx + r * 1.35f, cy + r * 0.4f)
-        canvas.drawOval(rect, beakPaint)
+        canvas.scale(-1f / squash, squash, cx, cy)
+        rect.set(cx - half, cy - half, cx + half, cy + half)
+        canvas.drawBitmap(sprites.bee, null, rect, spritePaint)
         canvas.restore()
     }
 
@@ -359,12 +406,15 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
     private companion object {
         const val AMPLITUDE = 0.12f
         const val SCROLL_SPEED = 0.32f
-        const val GROUND_Y = 0.9f
+        const val GROUND_Y = 0.88f
+        const val GROUND_TILE = 1f - GROUND_Y
         const val BIRD_X = 0.55f
         const val BIRD_RADIUS = 0.045f
         const val PIPE_WIDTH = 0.17f
         const val MAX_GAP_SHIFT = 0.22f
-        const val STRIPE_WIDTH = 0.08f
+        const val CLOUD_PARALLAX = 0.3f
+        const val BEE_SPRITE_SCALE = 1.8f
+        const val FLAP_ANIM_SEC = 0.2f
         const val RESTART_DELAY_SEC = 1.5f
         const val LOST_POSE_GRACE_SEC = 0.8f
     }

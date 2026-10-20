@@ -46,6 +46,10 @@ app/src/main/java/com/c016/pushupflappy/
 - **ゲームを追加する**: `MiniGame` を実装し、`GameCatalog.games` に登録します。動作判定は `motion/` に検出器として追加します。
 - **姿勢推定エンジンを変える**: `PoseEstimator` を実装します（例: RTMPose + ONNX Runtime）。出力はMediaPipeの33点の番号に合わせます。
 
+## 素材
+
+グラフィックは [Kenney](https://kenney.nl/) の「Platformer」パックの素材（CC0）を使っています（`app/src/main/res/drawable-nodpi/kenney_*.png`）。ライセンスは `licenses/kenney-CC0.txt` を参照してください。CC0なのでクレジット表記は必須ではありませんが、感謝を込めて記載しています。
+
 ## ビルド
 
 ```
