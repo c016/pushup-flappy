@@ -18,6 +18,10 @@ class GameView(context: Context, private val game: MiniGame) : SurfaceView(conte
     private val overlay = PoseOverlay()
     private val pendingTaps = AtomicInteger()
 
+    /** Latest touch position as a fraction of the view height, or NaN when there is none to deliver. */
+    @Volatile
+    private var pendingDragY = Float.NaN
+
     @Volatile
     private var latestFrame: PoseFrame? = null
     private var lastDeliveredTimestamp = Long.MIN_VALUE
@@ -51,7 +55,13 @@ class GameView(context: Context, private val game: MiniGame) : SurfaceView(conte
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (event.actionMasked == MotionEvent.ACTION_DOWN) pendingTaps.incrementAndGet()
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                pendingTaps.incrementAndGet()
+                pendingDragY = event.y / height
+            }
+            MotionEvent.ACTION_MOVE -> pendingDragY = event.y / height
+        }
         return true
     }
 
@@ -63,6 +73,11 @@ class GameView(context: Context, private val game: MiniGame) : SurfaceView(conte
             last = now
 
             repeat(pendingTaps.getAndSet(0)) { game.onTap() }
+            val dragY = pendingDragY
+            if (!dragY.isNaN()) {
+                pendingDragY = Float.NaN
+                game.onDrag(dragY)
+            }
             val frame = latestFrame
             if (frame != null && frame.timestampMs != lastDeliveredTimestamp) {
                 lastDeliveredTimestamp = frame.timestampMs

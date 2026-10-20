@@ -58,6 +58,34 @@
                 android:text="@string/difficulty_hard" />
         </RadioGroup>
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/menu_control_mode"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <RadioGroup
+            android:id="@+id/control_mode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:checkedButton="@+id/control_flap"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@id/control_flap"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/control_flap" />
+
+            <RadioButton
+                android:id="@+id/control_linked"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/control_linked" />
+        </RadioGroup>
+
         <CheckBox
             android:id="@+id/tap_mode"
             android:layout_width="wrap_content"

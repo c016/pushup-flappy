@@ -5,6 +5,7 @@ import com.c016.pushupflappy.pose.Pose
 import com.c016.pushupflappy.pose.PoseLandmarks
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class PushUpDetectorTest {
@@ -59,6 +60,22 @@ class PushUpDetectorTest {
         detector.move(0.3f, 0.4f)
         detector.move(0.4f, 0.3f)
         assertEquals(before, detector.reps)
+    }
+
+    @Test
+    fun longMemoryKeepsProgressWhileHoldingStill() {
+        val longMemory = PushUpDetector(rangeMemorySec = 60f)
+        val shortMemory = PushUpDetector()
+        for (detector in listOf(longMemory, shortMemory)) {
+            detector.move(0.3f, 0.6f)
+            detector.move(0.6f, 0.4f)
+            detector.move(0.4f, 0.4f) // let the smoothing settle
+        }
+        val held = longMemory.progress!!
+        // Hold the same position for 20 seconds.
+        for (detector in listOf(longMemory, shortMemory)) detector.move(0.4f, 0.4f, frames = 600)
+        assertEquals(held, longMemory.progress!!, 0.05f)
+        assertNull(shortMemory.progress)
     }
 
     @Test

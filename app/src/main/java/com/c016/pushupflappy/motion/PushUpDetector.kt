@@ -12,9 +12,11 @@ import kotlin.math.min
  * The phone is assumed to lie still on the floor, so the shoulders move down in the image when
  * the body lowers, whether the camera sees the player from the front or from the side. The
  * detector learns the top and bottom of the movement on the fly (no calibration step) and slowly
- * forgets them, so it adapts when the player moves closer or further away.
+ * forgets them over [rangeMemorySec], so it adapts when the player moves closer or further away.
+ * Use a longer memory when [progress] drives something continuously and the player may hold a
+ * position for a while.
  */
-class PushUpDetector {
+class PushUpDetector(private val rangeMemorySec: Float = DEFAULT_RANGE_MEMORY_SEC) {
 
     enum class Phase { UNKNOWN, UP, DOWN }
 
@@ -57,7 +59,7 @@ class PushUpDetector {
         }
 
         // Track the extremes and let them relax towards the current value over time.
-        val relax = 1f - exp(-dt / RANGE_MEMORY_SEC)
+        val relax = 1f - exp(-dt / rangeMemorySec)
         top = max(top, smoothed)
         bottom = min(bottom, smoothed)
         top += (smoothed - top) * relax
@@ -104,12 +106,12 @@ class PushUpDetector {
         return 1f - shoulders.map { it.y }.average().toFloat()
     }
 
-    private companion object {
-        const val SMOOTHING = 0.5f
-        const val RANGE_MEMORY_SEC = 10f
+    companion object {
+        const val DEFAULT_RANGE_MEMORY_SEC = 10f
+        private const val SMOOTHING = 0.5f
         /** Smallest movement (fraction of image height) that counts as a push-up. */
-        const val MIN_RANGE = 0.06f
-        const val UP_THRESHOLD = 0.7f
-        const val DOWN_THRESHOLD = 0.35f
+        private const val MIN_RANGE = 0.06f
+        private const val UP_THRESHOLD = 0.7f
+        private const val DOWN_THRESHOLD = 0.35f
     }
 }

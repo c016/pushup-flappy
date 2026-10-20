@@ -6,18 +6,21 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import com.c016.pushupflappy.game.ControlMode
 import com.c016.pushupflappy.game.Difficulty
 import com.c016.pushupflappy.game.GameOptions
 import com.c016.pushupflappy.game.MiniGame
 import com.c016.pushupflappy.motion.PushUpDetector
 import com.c016.pushupflappy.pose.Pose
 import kotlin.math.cos
+import kotlin.math.exp
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.random.Random
 
 /**
  * Flappy Bird where each push-up is one flap, drawn with Kenney's Tappy Plane sprites.
+ * In [ControlMode.LINKED] the plane instead follows the height of the player's body.
  *
  * World coordinates are in units of the screen height: y runs from 0 (top) to 1 (bottom) and x
  * from 0 to the screen aspect ratio. Physics are slowed down so that one flap per push-up keeps
@@ -52,7 +55,15 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
     private var best = prefs.getInt(bestKey, 0)
 
     private val sprites = FlappySprites(context.resources)
-    private val detector = PushUpDetector()
+    private val linked = options.controlMode == ControlMode.LINKED
+
+    // In linked mode the player may hold a position for a while, so the learned range must not fade quickly.
+    private val detector = PushUpDetector(
+        rangeMemorySec = if (linked) LINKED_RANGE_MEMORY_SEC else PushUpDetector.DEFAULT_RANGE_MEMORY_SEC
+    )
+
+    /** Linked mode: height the plane is steering towards, or null until the body's range is known. */
+    private var targetY: Float? = null
     private var state = State.READY
     private var stateTime = 0f
     private var score = 0
@@ -95,11 +106,17 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
 
     override fun onPose(pose: Pose?, timestampMs: Long) {
         if (options.tapMode) return
-        if (detector.update(pose, timestampMs)) onFlapInput()
+        val completedRep = detector.update(pose, timestampMs)
+        if (linked) detector.progress?.let { targetY = LINKED_BOTTOM - it * (LINKED_BOTTOM - LINKED_TOP) }
+        if (completedRep) onFlapInput()
     }
 
     override fun onTap() {
         if (options.tapMode) onFlapInput()
+    }
+
+    override fun onDrag(yFraction: Float) {
+        if (options.tapMode && linked) targetY = yFraction.coerceIn(LINKED_TOP, LINKED_BOTTOM)
     }
 
     private fun onFlapInput() {
@@ -114,7 +131,7 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         state = State.PLAYING
         stateTime = 0f
         score = 0
-        planeY = 0.45f
+        planeY = targetY ?: 0.45f
         planeVy = 0f
         obstacles.clear()
         puffs.clear()
@@ -123,8 +140,9 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         flap()
     }
 
+    /** In flap mode this lifts the plane; in linked mode a push-up only shows the effect. */
     private fun flap() {
-        planeVy = -tuning.flapSpeed
+        if (!linked) planeVy = -tuning.flapSpeed
         sinceFlap = 0f
         puffs.add(Puff(PLANE_X - PLANE_WIDTH * 0.45f, planeY + 0.01f, 0f, large = true))
         puffs.add(Puff(PLANE_X - PLANE_WIDTH * 0.7f, planeY - 0.01f, -0.08f, large = false))
@@ -149,7 +167,10 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         puffs.removeAll { it.age > PUFF_LIFE_SEC }
 
         when (state) {
-            State.READY -> planeY = 0.45f + 0.03f * sin(stateTime * 3f)
+            State.READY -> {
+                val target = targetY
+                if (linked && target != null) followTarget(target, dtSec) else planeY = 0.45f + 0.03f * sin(stateTime * 3f)
+            }
             State.PLAYING -> updatePlaying(dtSec)
             State.GAME_OVER -> if (planeY < GROUND_Y - PLANE_RADIUS) {
                 planeVy = min(planeVy + tuning.gravity * 3f * dtSec, tuning.maxFallSpeed * 3f)
@@ -160,9 +181,22 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
 
     private fun isPaused() = unseenSec > LOST_POSE_GRACE_SEC
 
+    /** Eases the plane towards [target]; planeVy is kept up to date for the tilt. */
+    private fun followTarget(target: Float, dt: Float) {
+        if (dt <= 0f) return
+        val previous = planeY
+        planeY += (target - planeY) * (1f - exp(-dt * LINKED_FOLLOW_RATE))
+        planeVy = (planeY - previous) / dt
+    }
+
     private fun updatePlaying(dt: Float) {
-        planeVy = min(planeVy + tuning.gravity * dt, tuning.maxFallSpeed)
-        planeY += planeVy * dt
+        if (linked) {
+            // Keep the last height while the body's range is not known yet.
+            targetY?.let { followTarget(it, dt) }
+        } else {
+            planeVy = min(planeVy + tuning.gravity * dt, tuning.maxFallSpeed)
+            planeY += planeVy * dt
+        }
         if (planeY < PLANE_RADIUS) {
             planeY = PLANE_RADIUS
             planeVy = 0f
@@ -311,7 +345,7 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         val halfWidth = PLANE_WIDTH * u / 2f
         val halfHeight = halfWidth * frame.height / frame.width
         val tilt = when (state) {
-            State.READY -> 0f
+            State.READY -> if (linked) (planeVy / tuning.maxFallSpeed * 20f).coerceIn(-25f, 25f) else 0f
             else -> (planeVy / tuning.maxFallSpeed * 40f).coerceIn(-25f, 70f)
         }
 
@@ -340,8 +374,16 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
             state == State.READY -> {
                 drawCentered(canvas, sprites.textGetReady, cx, 0.24f * u, 0.11f * u)
                 val message = if (options.tapMode) "タップでスタート" else "腕立て伏せを1回するとスタート！"
-                drawText(canvas, message, cx, 0.68f * u, 0.06f * u)
-                hintText().takeIf { it.isNotEmpty() }?.let { drawText(canvas, it, cx, 0.76f * u, 0.045f * u) }
+                drawText(canvas, message, cx, 0.62f * u, 0.06f * u)
+                val lines = listOfNotNull(
+                    when {
+                        !linked -> null
+                        options.tapMode -> "連動モード: ドラッグした高さに飛行機が動きます"
+                        else -> "連動モード: 体の高さで飛行機を上下させます"
+                    },
+                    hintText().takeIf { it.isNotEmpty() },
+                )
+                lines.forEachIndexed { i, line -> drawText(canvas, line, cx, (0.7f + 0.075f * i) * u, 0.045f * u) }
             }
             state == State.PLAYING && isPaused() -> {
                 canvas.drawRect(0f, 0.3f * u, width.toFloat(), 0.54f * u, shadePaint)
@@ -466,6 +508,12 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         const val MIN_ROCK_HEIGHT = 0.12f
         const val MAX_GAP_SHIFT = 0.22f
         const val HIT_SAMPLES = 8
+
+        /** Linked mode: the plane's range of heights, from body fully up (top) to fully down (bottom). */
+        const val LINKED_TOP = 0.1f
+        const val LINKED_BOTTOM = 0.8f
+        const val LINKED_FOLLOW_RATE = 6f
+        const val LINKED_RANGE_MEMORY_SEC = 60f
 
         const val PUFF_LIFE_SEC = 0.7f
         const val RESTART_DELAY_SEC = 1.5f

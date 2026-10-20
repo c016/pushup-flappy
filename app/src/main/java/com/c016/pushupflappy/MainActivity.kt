@@ -9,6 +9,7 @@ import android.widget.LinearLayout
 import android.widget.RadioGroup
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import com.c016.pushupflappy.game.ControlMode
 import com.c016.pushupflappy.game.Difficulty
 import com.c016.pushupflappy.game.GameCatalog
 
@@ -21,6 +22,7 @@ class MainActivity : AppCompatActivity() {
 
         val list = findViewById<LinearLayout>(R.id.game_list)
         val difficulty = findViewById<RadioGroup>(R.id.difficulty)
+        val controlMode = findViewById<RadioGroup>(R.id.control_mode)
         val tapMode = findViewById<CheckBox>(R.id.tap_mode)
         val density = resources.displayMetrics.density
 
@@ -39,6 +41,11 @@ class MainActivity : AppCompatActivity() {
                             .putExtra(GameActivity.EXTRA_GAME_ID, game.id)
                             .putExtra(GameActivity.EXTRA_DIFFICULTY, selected.name)
                             .putExtra(GameActivity.EXTRA_TAP_MODE, tapMode.isChecked)
+                            .putExtra(
+                                GameActivity.EXTRA_CONTROL_MODE,
+                                if (controlMode.checkedRadioButtonId == R.id.control_linked) ControlMode.LINKED.name
+                                else ControlMode.FLAP.name,
+                            )
                     )
                 }
             }

@@ -14,6 +14,9 @@ interface MiniGame {
     /** The screen was tapped. */
     fun onTap()
 
+    /** A finger is touching the screen at [yFraction] of its height (0 = top). */
+    fun onDrag(yFraction: Float) = Unit
+
     fun update(dtSec: Float)
 
     fun draw(canvas: Canvas, width: Int, height: Int)
@@ -21,4 +24,13 @@ interface MiniGame {
 
 enum class Difficulty { EASY, NORMAL, HARD }
 
-data class GameOptions(val difficulty: Difficulty, val tapMode: Boolean)
+/** How body movement steers the player in games that support more than one scheme. */
+enum class ControlMode {
+    /** Each push-up is one discrete action (e.g. a flap). */
+    FLAP,
+
+    /** The player's position follows the height of the body continuously. */
+    LINKED,
+}
+
+data class GameOptions(val difficulty: Difficulty, val tapMode: Boolean, val controlMode: ControlMode)

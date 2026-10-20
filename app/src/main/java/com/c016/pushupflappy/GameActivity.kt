@@ -13,6 +13,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.c016.pushupflappy.camera.PoseCamera
+import com.c016.pushupflappy.game.ControlMode
 import com.c016.pushupflappy.game.Difficulty
 import com.c016.pushupflappy.game.GameCatalog
 import com.c016.pushupflappy.game.GameOptions
@@ -50,6 +51,8 @@ class GameActivity : AppCompatActivity() {
             difficulty = intent.getStringExtra(EXTRA_DIFFICULTY)
                 ?.let { runCatching { Difficulty.valueOf(it) }.getOrNull() } ?: Difficulty.EASY,
             tapMode = intent.getBooleanExtra(EXTRA_TAP_MODE, false),
+            controlMode = intent.getStringExtra(EXTRA_CONTROL_MODE)
+                ?.let { runCatching { ControlMode.valueOf(it) }.getOrNull() } ?: ControlMode.FLAP,
         )
         gameView = GameView(this, info.create(this, options))
         setContentView(gameView)
@@ -90,5 +93,6 @@ class GameActivity : AppCompatActivity() {
         const val EXTRA_GAME_ID = "game_id"
         const val EXTRA_DIFFICULTY = "difficulty"
         const val EXTRA_TAP_MODE = "tap_mode"
+        const val EXTRA_CONTROL_MODE = "control_mode"
     }
 }
