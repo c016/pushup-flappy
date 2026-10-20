@@ -53,7 +53,15 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
     }
 
     private val prefs = context.getSharedPreferences("scores", Context.MODE_PRIVATE)
-    private val bestKey = "flappy_best_${options.difficulty.name.lowercase()}"
+    // Scores are not comparable across themes (different obstacle shapes), control modes or tap
+    // testing, so each combination keeps its own best.
+    private val bestKey = listOfNotNull(
+        "flappy_best",
+        options.theme.name.lowercase(),
+        options.controlMode.name.lowercase(),
+        options.difficulty.name.lowercase(),
+        "tap".takeIf { options.tapMode },
+    ).joinToString("_")
     private var best = prefs.getInt(bestKey, 0)
 
     private val skin: FlappySkin = when (options.theme) {
