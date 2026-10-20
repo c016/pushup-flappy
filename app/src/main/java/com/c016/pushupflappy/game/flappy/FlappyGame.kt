@@ -80,6 +80,8 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
 
     /** Linked mode: height the player is steering towards, or null until the body's range is known. */
     private var targetY: Float? = null
+    // Also read from the main thread by acceptsStartCommand.
+    @Volatile
     private var state = State.READY
     private var stateTime = 0f
     private var score = 0
@@ -113,6 +115,17 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         val completedRep = detector.update(pose, timestampMs)
         if (linked) detector.progress?.let { targetY = LINKED_BOTTOM - it * (LINKED_BOTTOM - LINKED_TOP) }
         if (completedRep) onFlapInput()
+    }
+
+    override val acceptsStartCommand: Boolean
+        get() = state == State.READY || state == State.GAME_OVER
+
+    override fun onStartCommand() {
+        when (state) {
+            State.READY -> startRound()
+            State.GAME_OVER -> if (stateTime > RESTART_DELAY_SEC) startRound()
+            else -> Unit
+        }
     }
 
     override fun onTap() {
@@ -284,7 +297,11 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         when {
             state == State.READY -> {
                 skin.drawTitle(canvas, FlappyTitle.GET_READY, cx, 0.24f * u, 0.11f * u)
-                val message = if (options.tapMode) "タップでスタート" else "腕立て伏せを1回するとスタート！"
+                val message = when {
+                    options.tapMode -> "タップでスタート"
+                    options.voiceStart -> "「スタート」と言うか、腕立て1回でスタート！"
+                    else -> "腕立て伏せを1回するとスタート！"
+                }
                 hud.drawText(canvas, message, cx, 0.62f * u, 0.06f * u)
                 val lines = listOfNotNull(
                     when {
@@ -338,7 +355,11 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         }
 
         if (stateTime > RESTART_DELAY_SEC) {
-            val retry = if (options.tapMode) "タップでもう一度" else "腕立て伏せ1回でもう一度"
+            val retry = when {
+                        options.tapMode -> "タップでもう一度"
+                        options.voiceStart -> "「スタート」か腕立て1回でもう一度"
+                        else -> "腕立て伏せ1回でもう一度"
+                    }
             hud.drawText(canvas, retry, cx, top + panelSize + 0.09f * u, 0.055f * u)
         }
     }

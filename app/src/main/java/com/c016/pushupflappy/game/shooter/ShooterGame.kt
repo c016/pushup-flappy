@@ -104,6 +104,8 @@ class ShooterGame(context: Context, private val options: GameOptions) : MiniGame
     private val gauge = PowerUpGauge()
     private val terrain = Terrain()
 
+    // Also read from the main thread by acceptsStartCommand.
+    @Volatile
     private var state = State.READY
     private var stateTime = 0f
     private var phase = Phase.SPACE
@@ -182,6 +184,17 @@ class ShooterGame(context: Context, private val options: GameOptions) : MiniGame
         val completedRep = detector.update(pose, timestampMs)
         detector.progress?.let { targetY = SHIP_BOTTOM - it * (SHIP_BOTTOM - SHIP_TOP) }
         if (completedRep) onPushUp()
+    }
+
+    override val acceptsStartCommand: Boolean
+        get() = state == State.READY || state == State.GAME_OVER
+
+    override fun onStartCommand() {
+        when (state) {
+            State.READY -> startGame()
+            State.GAME_OVER -> if (stateTime > RESTART_DELAY_SEC) startGame()
+            else -> Unit
+        }
     }
 
     override fun onTap() {
@@ -692,7 +705,11 @@ class ShooterGame(context: Context, private val options: GameOptions) : MiniGame
                 val lines = listOfNotNull(
                     if (options.tapMode) "ドラッグで自機を上下に動かします" else "体の高さで自機を上下に動かします",
                     "カプセルでゲージを進め、" + (if (options.tapMode) "タップ" else "腕立て") + "でパワーアップ",
-                    if (options.tapMode) "タップでスタート" else "腕立て伏せを1回するとスタート！",
+                    when {
+                        options.tapMode -> "タップでスタート"
+                        options.voiceStart -> "「スタート」と言うか、腕立て1回でスタート！"
+                        else -> "腕立て伏せを1回するとスタート！"
+                    },
                     hud.startHint(detector, options.tapMode),
                 )
                 lines.forEachIndexed { i, line -> hud.drawText(canvas, line, cx, (0.45f + 0.08f * i) * u, 0.05f * u) }
@@ -712,7 +729,11 @@ class ShooterGame(context: Context, private val options: GameOptions) : MiniGame
                 val reps = if (options.tapMode) "" else "   腕立て ${detector.reps}回"
                 hud.drawText(canvas, "STAGE $stage$reps", cx, 0.55f * u, 0.05f * u)
                 if (stateTime > RESTART_DELAY_SEC) {
-                    val retry = if (options.tapMode) "タップでもう一度" else "腕立て伏せ1回でもう一度"
+                    val retry = when {
+                        options.tapMode -> "タップでもう一度"
+                        options.voiceStart -> "「スタート」か腕立て1回でもう一度"
+                        else -> "腕立て伏せ1回でもう一度"
+                    }
                     hud.drawText(canvas, retry, cx, 0.66f * u, 0.055f * u)
                 }
             }

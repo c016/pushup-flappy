@@ -14,6 +14,12 @@ interface MiniGame {
     /** The screen was tapped. */
     fun onTap()
 
+    /** The player said "start": begin from the title screen or restart after game over. */
+    fun onStartCommand() = Unit
+
+    /** Whether a start command would do anything now; read from the main thread. */
+    val acceptsStartCommand: Boolean get() = false
+
     /** A finger is touching the screen at [yFraction] of its height (0 = top). */
     fun onDrag(yFraction: Float) = Unit
 
@@ -57,4 +63,6 @@ data class GameOptions(
     /** Cover the player's face with an avatar wherever the camera image is shown. */
     val avatar: Boolean,
     val sound: Boolean,
+    /** Start and restart by saying "スタート". */
+    val voiceStart: Boolean,
 )

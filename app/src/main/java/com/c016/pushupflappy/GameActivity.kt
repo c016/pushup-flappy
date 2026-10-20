@@ -23,6 +23,7 @@ import com.c016.pushupflappy.game.MiniGame
 import com.c016.pushupflappy.game.VisualTheme
 import com.c016.pushupflappy.pose.MediaPipePoseEstimator
 import com.c016.pushupflappy.pose.PoseEstimator
+import com.c016.pushupflappy.voice.VoiceStarter
 
 /** Hosts one mini game full screen and feeds it camera pose results. */
 class GameActivity : AppCompatActivity() {
@@ -32,15 +33,27 @@ class GameActivity : AppCompatActivity() {
     private lateinit var game: MiniGame
     private var estimator: PoseEstimator? = null
     private var camera: PoseCamera? = null
+    private var voice: VoiceStarter? = null
 
-    private val requestCamera = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            startPoseTracking()
-        } else {
-            Toast.makeText(this, R.string.camera_permission_denied, Toast.LENGTH_LONG).show()
-            finish()
+    private val requestPermissions =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+            if (Manifest.permission.CAMERA in results) {
+                if (results[Manifest.permission.CAMERA] == true) {
+                    startPoseTracking()
+                } else {
+                    Toast.makeText(this, R.string.camera_permission_denied, Toast.LENGTH_LONG).show()
+                    finish()
+                    return@registerForActivityResult
+                }
+            }
+            if (Manifest.permission.RECORD_AUDIO in results) {
+                if (results[Manifest.permission.RECORD_AUDIO] == true) {
+                    startVoice()
+                } else {
+                    Toast.makeText(this, R.string.voice_permission_denied, Toast.LENGTH_LONG).show()
+                }
+            }
         }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,18 +79,44 @@ class GameActivity : AppCompatActivity() {
             dimBackdrop = intent.getBooleanExtra(EXTRA_DIM_BACKDROP, false),
             avatar = !tapMode && intent.getBooleanExtra(EXTRA_AVATAR, false),
             sound = intent.getBooleanExtra(EXTRA_SOUND, true),
+            voiceStart = intent.getBooleanExtra(EXTRA_VOICE_START, true),
         )
         this.options = options
         game = info.create(this, options)
         gameView = GameView(this, game, options)
         setContentView(gameView)
 
-        if (options.tapMode) return
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            startPoseTracking()
-        } else {
-            requestCamera.launch(Manifest.permission.CAMERA)
+        // Start what is already allowed and ask for the rest together.
+        val missing = mutableListOf<String>()
+        if (!options.tapMode) {
+            if (isGranted(Manifest.permission.CAMERA)) startPoseTracking() else missing.add(Manifest.permission.CAMERA)
         }
+        if (options.voiceStart) {
+            if (isGranted(Manifest.permission.RECORD_AUDIO)) startVoice() else missing.add(Manifest.permission.RECORD_AUDIO)
+        }
+        if (missing.isNotEmpty()) requestPermissions.launch(missing.toTypedArray())
+    }
+
+    private fun isGranted(permission: String) =
+        ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+
+    private fun startVoice() {
+        val starter = VoiceStarter(this, shouldListen = { game.acceptsStartCommand }, onStart = gameView::requestStart)
+        if (starter.start()) {
+            voice = starter
+        } else {
+            Toast.makeText(this, R.string.voice_unavailable, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        voice?.start()
+    }
+
+    override fun onStop() {
+        voice?.stop()
+        super.onStop()
     }
 
     private fun startPoseTracking() {
@@ -100,6 +139,7 @@ class GameActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         // Stop feeding frames before closing the model.
+        voice?.destroy()
         camera?.close()
         estimator?.close()
         // The game loop has stopped with the surface by now.
@@ -118,5 +158,6 @@ class GameActivity : AppCompatActivity() {
         const val EXTRA_AVATAR = "avatar"
         const val EXTRA_DIM_BACKDROP = "dim_backdrop"
         const val EXTRA_SOUND = "sound"
+        const val EXTRA_VOICE_START = "voice_start"
     }
 }

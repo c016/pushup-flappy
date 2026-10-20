@@ -31,6 +31,7 @@ class GameView(
     private val backdropRect = RectF()
     private val dimPaint = Paint().apply { color = Color.argb(DIM_ALPHA, 0, 0, 0) }
     private val pendingTaps = AtomicInteger()
+    private val pendingStarts = AtomicInteger()
 
     /** Latest touch position as a fraction of the view height, or NaN when there is none to deliver. */
     @Volatile
@@ -47,6 +48,11 @@ class GameView(
     init {
         holder.addCallback(this)
         isFocusable = true
+    }
+
+    /** Called from any thread when the player says "start". */
+    fun requestStart() {
+        pendingStarts.incrementAndGet()
     }
 
     /** Called from the pose estimator thread with every new result. */
@@ -87,6 +93,7 @@ class GameView(
             last = now
 
             repeat(pendingTaps.getAndSet(0)) { game.onTap() }
+            repeat(pendingStarts.getAndSet(0)) { game.onStartCommand() }
             val dragY = pendingDragY
             if (!dragY.isNaN()) {
                 pendingDragY = Float.NaN

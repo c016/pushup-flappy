@@ -142,6 +142,13 @@
             android:text="@string/menu_sound" />
 
         <CheckBox
+            android:id="@+id/voice_start"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="@string/menu_voice_start" />
+
+        <CheckBox
             android:id="@+id/tap_mode"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

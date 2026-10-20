@@ -32,6 +32,7 @@ class MainActivity : AppCompatActivity() {
         dimBackdrop.isEnabled = cameraBackdrop.isChecked
         cameraBackdrop.setOnCheckedChangeListener { _, checked -> dimBackdrop.isEnabled = checked }
         val sound = findViewById<CheckBox>(R.id.sound)
+        val voiceStart = findViewById<CheckBox>(R.id.voice_start)
         val tapMode = findViewById<CheckBox>(R.id.tap_mode)
         val density = resources.displayMetrics.density
 
@@ -54,6 +55,7 @@ class MainActivity : AppCompatActivity() {
                             .putExtra(GameActivity.EXTRA_DIM_BACKDROP, dimBackdrop.isChecked)
                             .putExtra(GameActivity.EXTRA_AVATAR, avatar.isChecked)
                             .putExtra(GameActivity.EXTRA_SOUND, sound.isChecked)
+                            .putExtra(GameActivity.EXTRA_VOICE_START, voiceStart.isChecked)
                             .putExtra(
                                 GameActivity.EXTRA_CONTROL_MODE,
                                 if (controlMode.checkedRadioButtonId == R.id.control_linked) ControlMode.LINKED.name
