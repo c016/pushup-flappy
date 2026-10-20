@@ -20,6 +20,9 @@ interface MiniGame {
     fun update(dtSec: Float)
 
     fun draw(canvas: Canvas, width: Int, height: Int)
+
+    /** Releases resources such as sounds when the game screen closes. */
+    fun close() = Unit
 }
 
 enum class Difficulty { EASY, NORMAL, HARD }
@@ -53,4 +56,5 @@ data class GameOptions(
     val dimBackdrop: Boolean,
     /** Cover the player's face with an avatar wherever the camera image is shown. */
     val avatar: Boolean,
+    val sound: Boolean,
 )

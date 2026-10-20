@@ -16,12 +16,20 @@ class ShooterSprites(resources: Resources) {
     val option = listOf(load(R.drawable.shooter_option_1), load(R.drawable.shooter_option_2))
     val fan = listOf(load(R.drawable.shooter_fan_1), load(R.drawable.shooter_fan_2))
     val waver = listOf(load(R.drawable.shooter_waver_1), load(R.drawable.shooter_waver_2))
-    val dart = listOf(load(R.drawable.shooter_dart))
-    val gunner = listOf(load(R.drawable.shooter_gunner))
+    val dart = load(R.drawable.shooter_dart)
+    val gunner = load(R.drawable.shooter_gunner)
+
+    /** Drawn upright on the floor and flipped when hanging from the ceiling. */
+    val turret = load(R.drawable.shooter_turret)
     val capsule = listOf(load(R.drawable.shooter_capsule_1), load(R.drawable.shooter_capsule_2))
     val explosion = listOf(
         load(R.drawable.shooter_explosion_1),
         load(R.drawable.shooter_explosion_2),
         load(R.drawable.shooter_explosion_3),
     )
+    val bossBody = load(R.drawable.shooter_boss_body)
+
+    /** Bright, then dim. */
+    val bossCore = listOf(load(R.drawable.shooter_boss_core_1), load(R.drawable.shooter_boss_core_2))
+    val bossPlate = load(R.drawable.shooter_boss_plate)
 }

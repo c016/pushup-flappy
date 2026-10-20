@@ -10,6 +10,8 @@ import com.c016.pushupflappy.game.Difficulty
 import com.c016.pushupflappy.game.GameOptions
 import com.c016.pushupflappy.game.MiniGame
 import com.c016.pushupflappy.game.PoseHud
+import com.c016.pushupflappy.game.SoundFx
+import com.c016.pushupflappy.game.SoundFx.Sfx
 import com.c016.pushupflappy.game.VisualTheme
 import com.c016.pushupflappy.game.flappy.FlappyWorld.GROUND_Y
 import com.c016.pushupflappy.game.flappy.FlappyWorld.PLAYER_RADIUS
@@ -99,6 +101,7 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
 
     // Paint objects are reused every frame.
     private val hud = PoseHud()
+    private val sfx = SoundFx(context, options.sound)
     private val panelTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = skin.panelTextColor
         isFakeBoldText = true
@@ -143,6 +146,7 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
 
     /** In flap mode this lifts the player; in linked mode a push-up only shows the effect. */
     private fun flap() {
+        sfx.play(Sfx.FLAP)
         if (!linked) playerVy = -tuning.flapSpeed
         sinceFlap = 0f
         if (skin.hasPuffs) {
@@ -218,6 +222,7 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
             if (!obstacle.passed && obstacle.x < PLAYER_X) {
                 obstacle.passed = true
                 score++
+                sfx.play(Sfx.POINT)
             }
         }
 
@@ -238,6 +243,7 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         skin.hitsObstacle(o.x, gapTop(o), gapBottom(o), PLAYER_X, playerY, PLAYER_RADIUS * 0.85f)
 
     private fun gameOver() {
+        sfx.play(Sfx.HIT)
         state = State.GAME_OVER
         stateTime = 0f
         if (score > best) {
@@ -245,6 +251,8 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
             prefs.edit().putInt(bestKey, best).apply()
         }
     }
+
+    override fun close() = sfx.close()
 
     override fun draw(canvas: Canvas, width: Int, height: Int) {
         if (width == 0 || height == 0) return

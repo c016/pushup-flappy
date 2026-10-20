@@ -162,6 +162,44 @@ def explosion(stage):
     return g
 
 
+
+def turret():
+    g = grid(16, 13)
+    rect(g, 7, 1, 8, 6, 'D')                       # barrel
+    ellipse(g, 8, 10, 6.5, 4.5, 'G', lambda x, y: y < 11)
+    ellipse(g, 8, 10, 6.5, 4.5, 'w', lambda x, y: y < 8)
+    rect(g, 1, 10, 14, 12, 'D')
+    ellipse(g, 8, 9, 1.6, 1.3, 'r')
+    return outline(g)
+
+
+def boss_body():
+    g = grid(60, 46)
+    polygon(g, [(14, 4), (44, 4), (56, 12), (30, 18)], 'N')       # upper wing
+    polygon(g, [(14, 42), (44, 42), (56, 34), (30, 28)], 'N')     # lower wing
+    polygon(g, [(4, 16), (40, 10), (58, 16), (58, 30), (40, 36), (4, 30)], 'G')
+    polygon(g, [(4, 16), (40, 10), (58, 16), (58, 23), (4, 23)], 'w')
+    rect(g, 6, 19, 22, 27, 'D')                   # core tunnel
+    for y in (14, 31):
+        rect(g, 30, y, 52, y + 1, 'B')
+    rect(g, 56, 18, 58, 28, 'f')                  # engine glow
+    return outline(g)
+
+
+def boss_core(bright):
+    g = grid(14, 14)
+    ellipse(g, 7, 7, 6, 6, 'b' if bright else 'B')
+    ellipse(g, 7, 7, 3.5, 3.5, 'c' if bright else 'b')
+    ellipse(g, 6, 6, 1.4, 1.4, 'x')
+    return outline(g)
+
+
+def boss_plate():
+    g = grid(6, 20)
+    rect(g, 1, 1, 4, 18, 'G')
+    rect(g, 1, 1, 2, 18, 'w')
+    return outline(g)
+
 if __name__ == '__main__':
     for i, f in enumerate((2.0, 3.5)):
         save(ship(f), f'shooter_ship_{i + 1}')
@@ -175,3 +213,8 @@ if __name__ == '__main__':
     save(gunner(), 'shooter_gunner')
     for i in range(3):
         save(explosion(i), f'shooter_explosion_{i + 1}')
+    save(turret(), 'shooter_turret')
+    save(boss_body(), 'shooter_boss_body')
+    for i in range(2):
+        save(boss_core(i == 0), f'shooter_boss_core_{i + 1}')
+    save(boss_plate(), 'shooter_boss_plate')

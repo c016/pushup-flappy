@@ -19,6 +19,7 @@ import com.c016.pushupflappy.game.Difficulty
 import com.c016.pushupflappy.game.GameCatalog
 import com.c016.pushupflappy.game.GameOptions
 import com.c016.pushupflappy.game.GameView
+import com.c016.pushupflappy.game.MiniGame
 import com.c016.pushupflappy.game.VisualTheme
 import com.c016.pushupflappy.pose.MediaPipePoseEstimator
 import com.c016.pushupflappy.pose.PoseEstimator
@@ -28,6 +29,7 @@ class GameActivity : AppCompatActivity() {
 
     private lateinit var gameView: GameView
     private lateinit var options: GameOptions
+    private lateinit var game: MiniGame
     private var estimator: PoseEstimator? = null
     private var camera: PoseCamera? = null
 
@@ -63,9 +65,11 @@ class GameActivity : AppCompatActivity() {
             cameraBackdrop = !tapMode && intent.getBooleanExtra(EXTRA_CAMERA_BACKDROP, false),
             dimBackdrop = intent.getBooleanExtra(EXTRA_DIM_BACKDROP, false),
             avatar = !tapMode && intent.getBooleanExtra(EXTRA_AVATAR, false),
+            sound = intent.getBooleanExtra(EXTRA_SOUND, true),
         )
         this.options = options
-        gameView = GameView(this, info.create(this, options), options)
+        game = info.create(this, options)
+        gameView = GameView(this, game, options)
         setContentView(gameView)
 
         if (options.tapMode) return
@@ -98,6 +102,8 @@ class GameActivity : AppCompatActivity() {
         // Stop feeding frames before closing the model.
         camera?.close()
         estimator?.close()
+        // The game loop has stopped with the surface by now.
+        game.close()
         super.onDestroy()
     }
 
@@ -111,5 +117,6 @@ class GameActivity : AppCompatActivity() {
         const val EXTRA_CAMERA_BACKDROP = "camera_backdrop"
         const val EXTRA_AVATAR = "avatar"
         const val EXTRA_DIM_BACKDROP = "dim_backdrop"
+        const val EXTRA_SOUND = "sound"
     }
 }

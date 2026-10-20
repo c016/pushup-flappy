@@ -4,12 +4,14 @@ enum class PowerUp(val label: String, val maxLevel: Int) {
     SPEED("SPEED", 4),
     MISSILE("MISSILE", 1),
     DOUBLE("DOUBLE", 1),
+    LASER("LASER", 1),
     OPTION("OPTION", 2),
+    SHIELD("SHIELD", 1),
 }
 
 /**
  * The selectable power-up bar: each capsule moves the cursor one slot to the right (wrapping), and
- * a push-up buys the highlighted power-up and clears the cursor.
+ * a push-up buys the highlighted power-up and clears the cursor. DOUBLE and LASER replace each other.
  */
 class PowerUpGauge {
     private val levels = IntArray(PowerUp.entries.size)
@@ -33,8 +35,18 @@ class PowerUpGauge {
         val powerUp = selected ?: return null
         if (isMaxed(powerUp)) return null
         levels[powerUp.ordinal]++
+        when (powerUp) {
+            PowerUp.DOUBLE -> levels[PowerUp.LASER.ordinal] = 0
+            PowerUp.LASER -> levels[PowerUp.DOUBLE.ordinal] = 0
+            else -> Unit
+        }
         cursor = -1
         return powerUp
+    }
+
+    /** Removes a single power-up, e.g. when the shield is used up. */
+    fun drop(powerUp: PowerUp) {
+        levels[powerUp.ordinal] = 0
     }
 
     /** Losing a life loses every power-up. */

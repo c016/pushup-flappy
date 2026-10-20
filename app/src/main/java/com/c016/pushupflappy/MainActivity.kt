@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity() {
         // Dimming only applies to the camera backdrop.
         dimBackdrop.isEnabled = cameraBackdrop.isChecked
         cameraBackdrop.setOnCheckedChangeListener { _, checked -> dimBackdrop.isEnabled = checked }
+        val sound = findViewById<CheckBox>(R.id.sound)
         val tapMode = findViewById<CheckBox>(R.id.tap_mode)
         val density = resources.displayMetrics.density
 
@@ -52,6 +53,7 @@ class MainActivity : AppCompatActivity() {
                             .putExtra(GameActivity.EXTRA_CAMERA_BACKDROP, cameraBackdrop.isChecked)
                             .putExtra(GameActivity.EXTRA_DIM_BACKDROP, dimBackdrop.isChecked)
                             .putExtra(GameActivity.EXTRA_AVATAR, avatar.isChecked)
+                            .putExtra(GameActivity.EXTRA_SOUND, sound.isChecked)
                             .putExtra(
                                 GameActivity.EXTRA_CONTROL_MODE,
                                 if (controlMode.checkedRadioButtonId == R.id.control_linked) ControlMode.LINKED.name

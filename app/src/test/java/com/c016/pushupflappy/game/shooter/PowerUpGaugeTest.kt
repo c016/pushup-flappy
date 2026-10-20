@@ -39,6 +39,18 @@ class PowerUpGaugeTest {
     }
 
     @Test
+    fun doubleAndLaserReplaceEachOther() {
+        val gauge = PowerUpGauge()
+        repeat(PowerUp.DOUBLE.ordinal + 1) { gauge.collectCapsule() }
+        gauge.activate()
+        assertEquals(1, gauge.level(PowerUp.DOUBLE))
+        repeat(PowerUp.LASER.ordinal + 1) { gauge.collectCapsule() }
+        assertEquals(PowerUp.LASER, gauge.activate())
+        assertEquals(1, gauge.level(PowerUp.LASER))
+        assertEquals(0, gauge.level(PowerUp.DOUBLE))
+    }
+
+    @Test
     fun resetLosesEverything() {
         val gauge = PowerUpGauge()
         gauge.collectCapsule()
