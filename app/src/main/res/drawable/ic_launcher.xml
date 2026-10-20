@@ -13,6 +13,6 @@
         android:top="14dp">
         <bitmap
             android:filter="true"
-            android:src="@drawable/kenney_bee" />
+            android:src="@drawable/tappy_plane_1" />
     </item>
 </layer-list>

@@ -48,7 +48,7 @@ app/src/main/java/com/c016/pushupflappy/
 
 ## 素材
 
-グラフィックは [Kenney](https://kenney.nl/) の「Platformer」パックの素材（CC0）を使っています（`app/src/main/res/drawable-nodpi/kenney_*.png`）。ライセンスは `licenses/kenney-CC0.txt` を参照してください。CC0なのでクレジット表記は必須ではありませんが、感謝を込めて記載しています。
+グラフィックには [Kenney](https://kenney.nl/) の「[Tappy Plane](https://kenney.nl/assets/tappy-plane)」パックの素材（CC0）を使っています（`app/src/main/res/drawable-nodpi/tappy_*.png`）。ライセンスは `licenses/kenney-tappy-plane-CC0.txt` を参照してください。
 
 ## ビルド
 

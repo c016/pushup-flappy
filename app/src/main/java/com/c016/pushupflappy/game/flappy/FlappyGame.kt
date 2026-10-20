@@ -1,45 +1,44 @@
 package com.c016.pushupflappy.game.flappy
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RectF
-import android.graphics.Shader
 import com.c016.pushupflappy.game.Difficulty
 import com.c016.pushupflappy.game.GameOptions
 import com.c016.pushupflappy.game.MiniGame
 import com.c016.pushupflappy.motion.PushUpDetector
 import com.c016.pushupflappy.pose.Pose
-import kotlin.math.max
+import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.random.Random
 
 /**
- * Flappy Bird where each push-up is one flap.
+ * Flappy Bird where each push-up is one flap, drawn with Kenney's Tappy Plane sprites.
  *
  * World coordinates are in units of the screen height: y runs from 0 (top) to 1 (bottom) and x
  * from 0 to the screen aspect ratio. Physics are slowed down so that one flap per push-up keeps
- * the bird in the air.
+ * the plane in the air.
  */
 class FlappyGame(context: Context, private val options: GameOptions) : MiniGame {
 
     private enum class State { READY, PLAYING, GAME_OVER }
 
-    private class Pipe(var x: Float, val gapY: Float, var passed: Boolean = false)
+    /** A pair of rocks, one hanging from the top and one rising from the ground, whose tips line up at [x]. */
+    private class Obstacle(var x: Float, val gapY: Float, var passed: Boolean = false)
 
-    /** Scenery that scrolls past: ground props and clouds. */
-    private class Scenery(var x: Float, val y: Float, val size: Float, val variant: Int)
+    private class Puff(var x: Float, var y: Float, var age: Float, val large: Boolean)
 
     private class Tuning(flapIntervalSec: Float, val gap: Float) {
-        // Choose gravity and flap speed so that flapping every flapIntervalSec keeps the bird
+        // Choose gravity and flap speed so that flapping every flapIntervalSec keeps the plane
         // level, swinging up and down by AMPLITUDE: g = 8A/T^2, v = gT/2.
         val gravity = 8f * AMPLITUDE / (flapIntervalSec * flapIntervalSec)
         val flapSpeed = gravity * flapIntervalSec / 2f
         val maxFallSpeed = flapSpeed * 1.3f
-        val pipeSpacing = SCROLL_SPEED * flapIntervalSec * 2.5f
+        val obstacleSpacing = SCROLL_SPEED * flapIntervalSec * 2.5f
     }
 
     private val tuning = when (options.difficulty) {
@@ -52,30 +51,27 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
     private val bestKey = "flappy_best_${options.difficulty.name.lowercase()}"
     private var best = prefs.getInt(bestKey, 0)
 
+    private val sprites = FlappySprites(context.resources)
     private val detector = PushUpDetector()
     private var state = State.READY
     private var stateTime = 0f
     private var score = 0
     private var aspect = 16f / 9f
 
-    private var birdY = 0.45f
-    private var birdVy = 0f
+    private var planeY = 0.45f
+    private var planeVy = 0f
     private var sinceFlap = 10f
-    private val pipes = mutableListOf<Pipe>()
+    private val obstacles = mutableListOf<Obstacle>()
+    private val puffs = mutableListOf<Puff>()
     private var groundOffset = 0f
-    private val props = mutableListOf<Scenery>()
-    private val clouds = mutableListOf<Scenery>()
+    private var backgroundOffset = 0f
 
     /** Seconds since the body was last seen; the game pauses while it is out of view. */
     private var unseenSec = 0f
 
-    private val sprites = FlappySprites(context.resources)
-
     // Paint objects are reused every frame.
-    private val skyPaint = Paint()
-    private var skyHeight = -1
     private val spritePaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
-    private val cloudPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(235, 255, 255, 255) }
+    private val puffPaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val shadePaint = Paint().apply { color = Color.argb(140, 0, 0, 0) }
     private val gaugeBackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(120, 0, 0, 0) }
     private val gaugePaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -89,6 +85,10 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         textAlign = Paint.Align.CENTER
         style = Paint.Style.STROKE
         strokeJoin = Paint.Join.ROUND
+        isFakeBoldText = true
+    }
+    private val panelTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(90, 70, 40)
         isFakeBoldText = true
     }
     private val rect = RectF()
@@ -114,17 +114,20 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         state = State.PLAYING
         stateTime = 0f
         score = 0
-        birdY = 0.45f
-        birdVy = 0f
-        pipes.clear()
+        planeY = 0.45f
+        planeVy = 0f
+        obstacles.clear()
+        puffs.clear()
         detector.resetCount()
         // The push-up that started the round has already happened.
         flap()
     }
 
     private fun flap() {
-        birdVy = -tuning.flapSpeed
+        planeVy = -tuning.flapSpeed
         sinceFlap = 0f
+        puffs.add(Puff(PLANE_X - PLANE_WIDTH * 0.45f, planeY + 0.01f, 0f, large = true))
+        puffs.add(Puff(PLANE_X - PLANE_WIDTH * 0.7f, planeY - 0.01f, -0.08f, large = false))
     }
 
     override fun update(dtSec: Float) {
@@ -134,80 +137,109 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         if (options.tapMode || detector.bodyVisible) unseenSec = 0f else unseenSec += dtSec
         if (state == State.PLAYING && isPaused()) return
 
-        if (state != State.GAME_OVER) scrollScenery(dtSec)
+        if (state != State.GAME_OVER) {
+            groundOffset += SCROLL_SPEED * dtSec
+            backgroundOffset += SCROLL_SPEED * BACKGROUND_PARALLAX * dtSec
+        }
+        for (puff in puffs) {
+            puff.age += dtSec
+            puff.x -= SCROLL_SPEED * dtSec
+            puff.y -= 0.03f * dtSec
+        }
+        puffs.removeAll { it.age > PUFF_LIFE_SEC }
 
         when (state) {
-            State.READY -> birdY = 0.45f + 0.03f * sin(stateTime * 3f)
+            State.READY -> planeY = 0.45f + 0.03f * sin(stateTime * 3f)
             State.PLAYING -> updatePlaying(dtSec)
-            State.GAME_OVER -> if (birdY < GROUND_Y - BIRD_RADIUS) {
-                birdVy = min(birdVy + tuning.gravity * 3f * dtSec, tuning.maxFallSpeed * 3f)
-                birdY = min(birdY + birdVy * dtSec, GROUND_Y - BIRD_RADIUS)
+            State.GAME_OVER -> if (planeY < GROUND_Y - PLANE_RADIUS) {
+                planeVy = min(planeVy + tuning.gravity * 3f * dtSec, tuning.maxFallSpeed * 3f)
+                planeY = min(planeY + planeVy * dtSec, GROUND_Y - PLANE_RADIUS)
             }
-        }
-    }
-
-    private fun scrollScenery(dt: Float) {
-        groundOffset = (groundOffset + SCROLL_SPEED * dt) % GROUND_TILE
-        for (prop in props) prop.x -= SCROLL_SPEED * dt
-        for (cloud in clouds) cloud.x -= SCROLL_SPEED * CLOUD_PARALLAX * dt
-        props.removeAll { it.x + it.size < 0f }
-        clouds.removeAll { it.x + it.size * 2f < 0f }
-        fillScenery()
-    }
-
-    /** Keeps the visible width (plus a margin) populated with props and clouds. */
-    private fun fillScenery() {
-        while ((props.lastOrNull()?.x ?: -0.2f) < aspect + 0.2f) {
-            val x = (props.lastOrNull()?.x ?: -0.2f) + 0.25f + Random.nextFloat() * 0.6f
-            props.add(Scenery(x, GROUND_Y, 0.11f + Random.nextFloat() * 0.06f, Random.nextInt(sprites.props.size)))
-        }
-        while ((clouds.lastOrNull()?.x ?: -0.4f) < aspect + 0.4f) {
-            val x = (clouds.lastOrNull()?.x ?: -0.4f) + 0.5f + Random.nextFloat() * 0.6f
-            clouds.add(Scenery(x, 0.08f + Random.nextFloat() * 0.3f, 0.04f + Random.nextFloat() * 0.03f, 0))
         }
     }
 
     private fun isPaused() = unseenSec > LOST_POSE_GRACE_SEC
 
     private fun updatePlaying(dt: Float) {
-        birdVy = min(birdVy + tuning.gravity * dt, tuning.maxFallSpeed)
-        birdY += birdVy * dt
-        if (birdY < BIRD_RADIUS) {
-            birdY = BIRD_RADIUS
-            birdVy = 0f
+        planeVy = min(planeVy + tuning.gravity * dt, tuning.maxFallSpeed)
+        planeY += planeVy * dt
+        if (planeY < PLANE_RADIUS) {
+            planeY = PLANE_RADIUS
+            planeVy = 0f
         }
 
-        for (pipe in pipes) pipe.x -= SCROLL_SPEED * dt
-        pipes.removeAll { it.x < -PIPE_WIDTH }
-        val lastX = pipes.lastOrNull()?.x
-        if (lastX == null || lastX < aspect + PIPE_WIDTH - tuning.pipeSpacing) {
-            val spawnX = max(lastX?.plus(tuning.pipeSpacing) ?: 0f, aspect + PIPE_WIDTH)
-            pipes.add(Pipe(spawnX, nextGapY(pipes.lastOrNull()?.gapY)))
+        for (obstacle in obstacles) obstacle.x -= SCROLL_SPEED * dt
+        obstacles.removeAll { it.x < -MAX_ROCK_WIDTH }
+        val lastX = obstacles.lastOrNull()?.x
+        if (lastX == null || lastX < aspect + MAX_ROCK_WIDTH - tuning.obstacleSpacing) {
+            val spawnX = maxOf(lastX?.plus(tuning.obstacleSpacing) ?: 0f, aspect + MAX_ROCK_WIDTH)
+            obstacles.add(Obstacle(spawnX, nextGapY(obstacles.lastOrNull()?.gapY)))
         }
 
-        for (pipe in pipes) {
-            if (!pipe.passed && pipe.x + PIPE_WIDTH < BIRD_X) {
-                pipe.passed = true
+        for (obstacle in obstacles) {
+            if (!obstacle.passed && obstacle.x < PLANE_X) {
+                obstacle.passed = true
                 score++
             }
         }
 
-        if (birdY + BIRD_RADIUS >= GROUND_Y || pipes.any(::hitsBird)) gameOver()
+        if (planeY + PLANE_RADIUS >= GROUND_Y || obstacles.any(::hitsPlane)) gameOver()
     }
 
     private fun nextGapY(previous: Float?): Float {
-        val minY = 0.08f + tuning.gap / 2f
-        val maxY = GROUND_Y - 0.06f - tuning.gap / 2f
+        val minY = MIN_ROCK_HEIGHT + tuning.gap / 2f
+        val maxY = GROUND_Y - MIN_ROCK_HEIGHT - tuning.gap / 2f
         val center = previous ?: ((minY + maxY) / 2f)
         return (center + Random.nextFloat() * 2f * MAX_GAP_SHIFT - MAX_GAP_SHIFT).coerceIn(minY, maxY)
     }
 
-    private fun hitsBird(pipe: Pipe): Boolean {
-        val r = BIRD_RADIUS * 0.85f
-        if (BIRD_X + r < pipe.x || BIRD_X - r > pipe.x + PIPE_WIDTH) return false
-        val gapTop = pipe.gapY - tuning.gap / 2f
-        val gapBottom = pipe.gapY + tuning.gap / 2f
-        return birdY - r < gapTop || birdY + r > gapBottom
+    // Rock geometry. Each rock is a triangle whose tip points into the gap; the sprites are drawn
+    // over exactly these triangles so that collisions match what the player sees.
+
+    private fun rockWidth(height: Float) = (height * ROCK_ASPECT).coerceIn(MIN_ROCK_WIDTH, MAX_ROCK_WIDTH)
+
+    private fun upperRockBottom(o: Obstacle) = o.gapY - tuning.gap / 2f
+    private fun lowerRockTop(o: Obstacle) = o.gapY + tuning.gap / 2f
+
+    /** Rock rising from below the ground; its base is hidden behind the ground strip. */
+    private fun lowerRockRect(o: Obstacle, out: RectF) {
+        val top = lowerRockTop(o)
+        val w = rockWidth(1f - top)
+        out.set(o.x - w * ROCK_UP_TIP, top, o.x + w * (1f - ROCK_UP_TIP), 1f)
+    }
+
+    private fun upperRockRect(o: Obstacle, out: RectF) {
+        val bottom = upperRockBottom(o)
+        val w = rockWidth(bottom)
+        out.set(o.x - w * ROCK_DOWN_TIP, 0f, o.x + w * (1f - ROCK_DOWN_TIP), bottom)
+    }
+
+    private fun hitsPlane(o: Obstacle): Boolean {
+        val r = PLANE_RADIUS * 0.85f
+        lowerRockRect(o, rect)
+        val lowerLeft = rect.left
+        val lowerRight = rect.right
+        upperRockRect(o, rect)
+        val upperLeft = rect.left
+        val upperRight = rect.right
+        // Test the plane's centre and points around its hitbox circle against both triangles.
+        for (i in 0..HIT_SAMPLES) {
+            val angle = i * (2.0 * Math.PI / HIT_SAMPLES)
+            val px = if (i == HIT_SAMPLES) PLANE_X else PLANE_X + r * cos(angle).toFloat()
+            val py = if (i == HIT_SAMPLES) planeY else planeY + r * sin(angle).toFloat()
+            if (inTriangle(px, py, lowerLeft, 1f, lowerRight, 1f, o.x, lowerRockTop(o))) return true
+            if (inTriangle(px, py, upperLeft, 0f, upperRight, 0f, o.x, upperRockBottom(o))) return true
+        }
+        return false
+    }
+
+    private fun inTriangle(px: Float, py: Float, ax: Float, ay: Float, bx: Float, by: Float, cx: Float, cy: Float): Boolean {
+        val d1 = (px - bx) * (ay - by) - (ax - bx) * (py - by)
+        val d2 = (px - cx) * (by - cy) - (bx - cx) * (py - cy)
+        val d3 = (px - ax) * (cy - ay) - (cx - ax) * (py - ay)
+        val hasNeg = d1 < 0 || d2 < 0 || d3 < 0
+        val hasPos = d1 > 0 || d2 > 0 || d3 > 0
+        return !(hasNeg && hasPos)
     }
 
     private fun gameOver() {
@@ -224,115 +256,75 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         val u = height.toFloat()
         aspect = width / u
 
-        if (props.isEmpty()) fillScenery()
-
-        drawBackground(canvas, width, height)
-        for (cloud in clouds) drawCloud(canvas, cloud, u)
-        for (prop in props) drawProp(canvas, prop, u)
-        for (pipe in pipes) drawPipe(canvas, pipe, u)
+        drawBackground(canvas, width, u)
+        for (obstacle in obstacles) drawObstacle(canvas, obstacle, u)
         drawGround(canvas, width, u)
-        drawBee(canvas, u)
+        for (puff in puffs) drawPuff(canvas, puff, u)
+        drawPlane(canvas, u)
         drawHud(canvas, width, u)
     }
 
-    private fun drawBackground(canvas: Canvas, width: Int, height: Int) {
-        if (skyHeight != height) {
-            skyHeight = height
-            skyPaint.shader = LinearGradient(
-                0f, 0f, 0f, height.toFloat(),
-                Color.rgb(78, 192, 202), Color.rgb(190, 235, 230), Shader.TileMode.CLAMP,
-            )
-        }
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), skyPaint)
-    }
-
-    private fun drawCloud(canvas: Canvas, cloud: Scenery, u: Float) {
-        val x = cloud.x * u
-        val y = cloud.y * u
-        val r = cloud.size * u
-        canvas.drawCircle(x, y, r, cloudPaint)
-        canvas.drawCircle(x + r * 1.1f, y - r * 0.4f, r * 1.3f, cloudPaint)
-        canvas.drawCircle(x + r * 2.3f, y, r, cloudPaint)
-        rect.set(x, y - r * 0.2f, x + r * 2.3f, y + r)
-        canvas.drawRect(rect, cloudPaint)
-    }
-
-    private fun drawProp(canvas: Canvas, prop: Scenery, u: Float) {
-        // Sink props slightly into the grass so they look planted.
-        val bottom = (prop.y + 0.012f) * u
-        rect.set(prop.x * u, bottom - prop.size * u, (prop.x + prop.size) * u, bottom)
-        canvas.drawBitmap(sprites.props[prop.variant], null, rect, spritePaint)
-    }
-
-    /** A stone column above and below the gap, built from square tiles PIPE_WIDTH wide. */
-    private fun drawPipe(canvas: Canvas, pipe: Pipe, u: Float) {
-        val left = pipe.x * u
-        val right = (pipe.x + PIPE_WIDTH) * u
-        val tile = PIPE_WIDTH * u
-        val gapTop = (pipe.gapY - tuning.gap / 2f) * u
-        val gapBottom = (pipe.gapY + tuning.gap / 2f) * u
-
-        // Lower column: cap on top, body tiles down to (and hidden by) the ground.
-        rect.set(left, gapBottom, right, gapBottom + tile)
-        canvas.drawBitmap(sprites.columnCap, null, rect, spritePaint)
-        var y = gapBottom + tile
-        while (y < GROUND_Y * u) {
-            rect.set(left, y, right, y + tile)
-            canvas.drawBitmap(sprites.columnBody, null, rect, spritePaint)
-            y += tile
-        }
-
-        // Upper column: cap flipped upside down at the gap, body tiles up to the top edge.
-        y = gapTop - tile
-        while (y > 0f) {
-            y -= tile
-            rect.set(left, y, right, y + tile)
-            canvas.drawBitmap(sprites.columnBody, null, rect, spritePaint)
-        }
-        canvas.save()
-        canvas.scale(1f, -1f, 0f, gapTop - tile / 2f)
-        rect.set(left, gapTop - tile, right, gapTop)
-        canvas.drawBitmap(sprites.columnCap, null, rect, spritePaint)
-        canvas.restore()
-    }
-
-    private fun drawGround(canvas: Canvas, width: Int, u: Float) {
-        val top = GROUND_Y * u
-        val tile = GROUND_TILE * u
-        var x = -groundOffset * u
+    /** Tiles [bitmap] horizontally across the screen at the given height, scrolled by [offset]. */
+    private fun drawStrip(canvas: Canvas, bitmap: Bitmap, width: Int, top: Float, bottom: Float, offset: Float) {
+        val tileWidth = (bottom - top) * bitmap.width / bitmap.height
+        var x = -(offset % tileWidth)
         while (x < width) {
-            var y = top
-            while (y < u) {
-                rect.set(x, y, x + tile + 1f, y + tile)
-                canvas.drawBitmap(sprites.groundTop, null, rect, spritePaint)
-                y += tile
-            }
-            x += tile
+            rect.set(x, top, x + tileWidth + 1f, bottom)
+            canvas.drawBitmap(bitmap, null, rect, spritePaint)
+            x += tileWidth
         }
     }
 
-    private fun drawBee(canvas: Canvas, u: Float) {
-        val cx = BIRD_X * u
-        val cy = birdY * u
-        val half = BIRD_RADIUS * BEE_SPRITE_SCALE * u
+    private fun drawBackground(canvas: Canvas, width: Int, u: Float) =
+        drawStrip(canvas, sprites.background, width, 0f, u, backgroundOffset * u)
+
+    private fun drawGround(canvas: Canvas, width: Int, u: Float) =
+        drawStrip(canvas, sprites.ground, width, (1f - GROUND_HEIGHT) * u, u, groundOffset * u)
+
+    private fun drawObstacle(canvas: Canvas, o: Obstacle, u: Float) {
+        lowerRockRect(o, rect)
+        rect.set(rect.left * u, rect.top * u, rect.right * u, rect.bottom * u)
+        canvas.drawBitmap(sprites.rockUp, null, rect, spritePaint)
+        upperRockRect(o, rect)
+        rect.set(rect.left * u, rect.top * u, rect.right * u, rect.bottom * u)
+        canvas.drawBitmap(sprites.rockDown, null, rect, spritePaint)
+    }
+
+    private fun drawPuff(canvas: Canvas, puff: Puff, u: Float) {
+        if (puff.age < 0f) return
+        val t = puff.age / PUFF_LIFE_SEC
+        val bitmap = if (puff.large) sprites.puffLarge else sprites.puffSmall
+        val size = (if (puff.large) 0.05f else 0.035f) * (0.7f + 0.8f * t) * u
+        puffPaint.alpha = ((1f - t) * 255).toInt().coerceIn(0, 255)
+        val h = size * bitmap.height / bitmap.width
+        rect.set(puff.x * u - size / 2, puff.y * u - h / 2, puff.x * u + size / 2, puff.y * u + h / 2)
+        canvas.drawBitmap(bitmap, null, rect, puffPaint)
+    }
+
+    private fun drawPlane(canvas: Canvas, u: Float) {
+        val cx = PLANE_X * u
+        val cy = planeY * u
+        val frames = sprites.plane
+        // The propeller spins faster right after a flap and stops once the plane has crashed.
+        val fps = if (sinceFlap < 0.4f) 24f else 12f
+        val frame = if (state == State.GAME_OVER) frames[0] else frames[(stateTime * fps).toInt() % frames.size]
+        val halfWidth = PLANE_WIDTH * u / 2f
+        val halfHeight = halfWidth * frame.height / frame.width
         val tilt = when (state) {
             State.READY -> 0f
-            else -> (birdVy / tuning.maxFallSpeed * 45f).coerceIn(-25f, 80f)
+            else -> (planeVy / tuning.maxFallSpeed * 40f).coerceIn(-25f, 70f)
         }
-        // Squash and stretch for a moment after each flap.
-        val squash = if (sinceFlap < FLAP_ANIM_SEC) 1f - 0.18f * (1f - sinceFlap / FLAP_ANIM_SEC) else 1f
 
         canvas.save()
         canvas.rotate(tilt, cx, cy)
-        canvas.scale(-1f / squash, squash, cx, cy)
-        rect.set(cx - half, cy - half, cx + half, cy + half)
-        canvas.drawBitmap(sprites.bee, null, rect, spritePaint)
+        rect.set(cx - halfWidth, cy - halfHeight, cx + halfWidth, cy + halfHeight)
+        canvas.drawBitmap(frame, null, rect, spritePaint)
         canvas.restore()
     }
 
     private fun drawHud(canvas: Canvas, width: Int, u: Float) {
         val cx = width / 2f
-        if (state != State.READY) drawText(canvas, score.toString(), cx, 0.16f * u, 0.12f * u)
+        if (state == State.PLAYING) drawNumber(canvas, score, cx, 0.05f * u, 0.11f * u)
 
         val repsLabel = if (options.tapMode) "タップ操作モード" else "腕立て ${detector.reps}回"
         textPaint.textAlign = Paint.Align.LEFT
@@ -346,20 +338,59 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
 
         when {
             state == State.READY -> {
+                drawCentered(canvas, sprites.textGetReady, cx, 0.24f * u, 0.11f * u)
                 val message = if (options.tapMode) "タップでスタート" else "腕立て伏せを1回するとスタート！"
-                drawBanner(canvas, width, u, message, hintText())
+                drawText(canvas, message, cx, 0.68f * u, 0.06f * u)
+                hintText().takeIf { it.isNotEmpty() }?.let { drawText(canvas, it, cx, 0.76f * u, 0.045f * u) }
             }
-            state == State.PLAYING && isPaused() ->
-                drawBanner(canvas, width, u, "一時停止中", "カメラに上半身が映るようにしてください")
-            state == State.GAME_OVER -> {
-                val retry = when {
-                    stateTime <= RESTART_DELAY_SEC -> ""
-                    options.tapMode -> "タップでもう一度"
-                    else -> "腕立て伏せ1回でもう一度"
-                }
-                val detail = if (options.tapMode) "スコア $score  ベスト $best" else "スコア $score  腕立て ${detector.reps}回  ベスト $best"
-                drawBanner(canvas, width, u, "ゲームオーバー", detail, retry)
+            state == State.PLAYING && isPaused() -> {
+                canvas.drawRect(0f, 0.3f * u, width.toFloat(), 0.54f * u, shadePaint)
+                drawText(canvas, "一時停止中", cx, 0.42f * u, 0.08f * u)
+                drawText(canvas, "カメラに上半身が映るようにしてください", cx, 0.5f * u, 0.05f * u)
             }
+            state == State.GAME_OVER -> drawGameOver(canvas, cx, u)
+        }
+    }
+
+    private fun drawGameOver(canvas: Canvas, cx: Float, u: Float) {
+        drawCentered(canvas, sprites.textGameOver, cx, 0.17f * u, 0.11f * u)
+
+        val panelSize = 0.42f * u
+        val top = 0.27f * u
+        rect.set(cx - panelSize * 0.8f, top, cx + panelSize * 0.8f, top + panelSize)
+        canvas.drawBitmap(sprites.panel, null, rect, spritePaint)
+
+        val medal = when {
+            score >= GOLD_SCORE -> sprites.medalGold
+            score >= SILVER_SCORE -> sprites.medalSilver
+            score >= BRONZE_SCORE -> sprites.medalBronze
+            else -> null
+        }
+        val medalSize = panelSize * 0.5f
+        val medalCx = cx - panelSize * 0.42f
+        val medalCy = top + panelSize / 2f
+        if (medal != null) {
+            rect.set(medalCx - medalSize / 2, medalCy - medalSize / 2, medalCx + medalSize / 2, medalCy + medalSize / 2)
+            canvas.drawBitmap(medal, null, rect, spritePaint)
+        }
+
+        val textX = cx - panelSize * 0.1f
+        val lines = buildList {
+            add("スコア  $score")
+            add("ベスト  $best")
+            if (!options.tapMode) add("腕立て  ${detector.reps}回")
+        }
+        panelTextPaint.textSize = 0.055f * u
+        val lineHeight = 0.085f * u
+        var y = medalCy - lineHeight * (lines.size - 1) / 2f + panelTextPaint.textSize * 0.35f
+        for (line in lines) {
+            canvas.drawText(line, textX, y, panelTextPaint)
+            y += lineHeight
+        }
+
+        if (stateTime > RESTART_DELAY_SEC) {
+            val retry = if (options.tapMode) "タップでもう一度" else "腕立て伏せ1回でもう一度"
+            drawText(canvas, retry, cx, top + panelSize + 0.09f * u, 0.055f * u)
         }
     }
 
@@ -384,14 +415,24 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         canvas.drawRoundRect(rect, w / 2, w / 2, gaugePaint)
     }
 
-    private fun drawBanner(canvas: Canvas, width: Int, u: Float, title: String, vararg lines: String) {
-        val visible = lines.filter { it.isNotEmpty() }
-        val top = 0.3f * u
-        val bottom = top + 0.16f * u + visible.size * 0.08f * u
-        canvas.drawRect(0f, top, width.toFloat(), bottom, shadePaint)
-        drawText(canvas, title, width / 2f, top + 0.12f * u, 0.08f * u)
-        visible.forEachIndexed { i, line ->
-            drawText(canvas, line, width / 2f, top + 0.2f * u + i * 0.08f * u, 0.05f * u)
+    /** Draws [bitmap] centred on (cx, cy) with the given height, keeping its aspect ratio. */
+    private fun drawCentered(canvas: Canvas, bitmap: Bitmap, cx: Float, cy: Float, height: Float) {
+        val w = height * bitmap.width / bitmap.height
+        rect.set(cx - w / 2, cy - height / 2, cx + w / 2, cy + height / 2)
+        canvas.drawBitmap(bitmap, null, rect, spritePaint)
+    }
+
+    /** Draws [value] with the digit sprites, centred horizontally on [cx]. */
+    private fun drawNumber(canvas: Canvas, value: Int, cx: Float, top: Float, height: Float) {
+        val digits = value.toString().map { sprites.digits[it - '0'] }
+        val gap = height * 0.05f
+        val total = digits.sumOf { (height * it.width / it.height).toDouble() }.toFloat() + gap * (digits.size - 1)
+        var x = cx - total / 2
+        for (digit in digits) {
+            val w = height * digit.width / digit.height
+            rect.set(x, top, x + w, top + height)
+            canvas.drawBitmap(digit, null, rect, spritePaint)
+            x += w + gap
         }
     }
 
@@ -406,16 +447,32 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
     private companion object {
         const val AMPLITUDE = 0.12f
         const val SCROLL_SPEED = 0.32f
-        const val GROUND_Y = 0.88f
-        const val GROUND_TILE = 1f - GROUND_Y
-        const val BIRD_X = 0.55f
-        const val BIRD_RADIUS = 0.045f
-        const val PIPE_WIDTH = 0.17f
+        const val BACKGROUND_PARALLAX = 0.25f
+
+        /** Height of the ground strip; its wavy grass line sits around GROUND_Y. */
+        const val GROUND_HEIGHT = 0.2f
+        const val GROUND_Y = 0.87f
+
+        const val PLANE_X = 0.55f
+        const val PLANE_WIDTH = 0.13f
+        const val PLANE_RADIUS = 0.04f
+
+        /** Width/height of the rock sprites (108x239) and where their tips sit across the width. */
+        const val ROCK_ASPECT = 108f / 239f
+        const val ROCK_UP_TIP = 0.61f
+        const val ROCK_DOWN_TIP = 0.6f
+        const val MIN_ROCK_WIDTH = 0.12f
+        const val MAX_ROCK_WIDTH = 0.3f
+        const val MIN_ROCK_HEIGHT = 0.12f
         const val MAX_GAP_SHIFT = 0.22f
-        const val CLOUD_PARALLAX = 0.3f
-        const val BEE_SPRITE_SCALE = 1.8f
-        const val FLAP_ANIM_SEC = 0.2f
+        const val HIT_SAMPLES = 8
+
+        const val PUFF_LIFE_SEC = 0.7f
         const val RESTART_DELAY_SEC = 1.5f
         const val LOST_POSE_GRACE_SEC = 0.8f
+
+        const val BRONZE_SCORE = 5
+        const val SILVER_SCORE = 10
+        const val GOLD_SCORE = 20
     }
 }
