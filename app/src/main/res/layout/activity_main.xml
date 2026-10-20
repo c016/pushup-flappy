@@ -115,6 +115,19 @@
         </RadioGroup>
 
         <CheckBox
+            android:id="@+id/camera_backdrop"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/menu_camera_backdrop" />
+
+        <CheckBox
+            android:id="@+id/avatar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/menu_avatar" />
+
+        <CheckBox
             android:id="@+id/tap_mode"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

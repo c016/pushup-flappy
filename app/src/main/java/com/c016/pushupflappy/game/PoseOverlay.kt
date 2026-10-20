@@ -8,7 +8,7 @@ import com.c016.pushupflappy.pose.PoseFrame
 import com.c016.pushupflappy.pose.PoseLandmarks
 
 /** Draws the camera image with the detected skeleton as a small picture-in-picture. */
-class PoseOverlay {
+class PoseOverlay(private val avatar: AvatarPainter?) {
     private val imagePaint = Paint(Paint.FILTER_BITMAP_FLAG)
     private val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -33,6 +33,7 @@ class PoseOverlay {
         canvas.drawRect(rect, framePaint)
 
         val pose = frame.pose ?: return
+        avatar?.draw(canvas, pose, rect)
         bonePaint.strokeWidth = height * 0.006f
         for ((a, b) in PoseLandmarks.CONNECTIONS) {
             val p = pose[a]

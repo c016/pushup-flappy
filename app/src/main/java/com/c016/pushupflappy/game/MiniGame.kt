@@ -47,4 +47,8 @@ data class GameOptions(
     val tapMode: Boolean,
     val controlMode: ControlMode,
     val theme: VisualTheme,
+    /** Show the (blurred around the player) camera image instead of the game's background. */
+    val cameraBackdrop: Boolean,
+    /** Cover the player's face with an avatar wherever the camera image is shown. */
+    val avatar: Boolean,
 )

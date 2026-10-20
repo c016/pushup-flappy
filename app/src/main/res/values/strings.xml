@@ -12,6 +12,8 @@
     <string name="menu_theme">見た目</string>
     <string name="theme_classic">クラシック（Flappy Bird風のドット絵）</string>
     <string name="theme_kenney">Tappy Plane（Kenney素材）</string>
+    <string name="menu_camera_backdrop">背景をカメラ映像にする（自分以外はぼかします）</string>
+    <string name="menu_avatar">顔をアバターで隠す</string>
     <string name="menu_tap_mode">タップ操作モード（カメラを使わずに試す。連動ではドラッグで操作）</string>
     <string name="menu_howto">遊び方: スマホを床に立てかけ、インカメラに上半身が映るようにします（顔の前に置くか、体の横に置きます）。腕立て伏せで体を下ろして上げると1回とカウントされ、鳥が羽ばたきます。</string>
     <string name="game_flappy_title">腕立てFlappy</string>

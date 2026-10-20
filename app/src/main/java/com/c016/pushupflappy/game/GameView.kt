@@ -3,6 +3,9 @@ package com.c016.pushupflappy.game
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
 import android.os.Build
 import android.view.MotionEvent
 import android.view.SurfaceHolder
@@ -11,11 +14,21 @@ import com.c016.pushupflappy.pose.PoseFrame
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.min
 
-/** Runs a [MiniGame] on its own thread and draws it together with the camera overlay. */
+/**
+ * Runs a [MiniGame] on its own thread and draws it together with the camera overlay and, if
+ * [GameOptions.cameraBackdrop] is set, the camera image behind the game.
+ */
 @SuppressLint("ViewConstructor")
-class GameView(context: Context, private val game: MiniGame) : SurfaceView(context), SurfaceHolder.Callback {
+class GameView(
+    context: Context,
+    private val game: MiniGame,
+    private val options: GameOptions,
+) : SurfaceView(context), SurfaceHolder.Callback {
 
-    private val overlay = PoseOverlay()
+    private val avatar = if (options.avatar) AvatarPainter(resources) else null
+    private val overlay = PoseOverlay(avatar)
+    private val backdropPaint = Paint(Paint.FILTER_BITMAP_FLAG)
+    private val backdropRect = RectF()
     private val pendingTaps = AtomicInteger()
 
     /** Latest touch position as a fraction of the view height, or NaN when there is none to deliver. */
@@ -87,6 +100,7 @@ class GameView(context: Context, private val game: MiniGame) : SurfaceView(conte
 
             val canvas = lockCanvas() ?: continue
             try {
+                if (options.cameraBackdrop) drawBackdrop(canvas, frame)
                 game.draw(canvas, width, height)
                 if (frame != null) overlay.draw(canvas, frame, width, height)
             } finally {
@@ -97,6 +111,29 @@ class GameView(context: Context, private val game: MiniGame) : SurfaceView(conte
             val elapsedMs = (System.nanoTime() - now) / 1_000_000
             if (elapsedMs < FRAME_MS) Thread.sleep(FRAME_MS - elapsedMs)
         }
+    }
+
+    /**
+     * The blurred image fills the screen; the sharp person layer is fitted to the screen height so
+     * the whole body stays visible.
+     */
+    private fun drawBackdrop(canvas: Canvas, frame: PoseFrame?) {
+        canvas.drawColor(Color.BLACK)
+        val backdrop = frame?.backdrop ?: return
+        val image = frame.image
+        val w = width.toFloat()
+        val h = height.toFloat()
+
+        val coverScale = maxOf(w / image.width, h / image.height)
+        val coverW = image.width * coverScale
+        val coverH = image.height * coverScale
+        backdropRect.set((w - coverW) / 2, (h - coverH) / 2, (w + coverW) / 2, (h + coverH) / 2)
+        canvas.drawBitmap(backdrop.blurred, null, backdropRect, backdropPaint)
+
+        val fitW = image.width * h / image.height
+        backdropRect.set((w - fitW) / 2, 0f, (w + fitW) / 2, h)
+        canvas.drawBitmap(backdrop.person, null, backdropRect, backdropPaint)
+        frame.pose?.let { avatar?.draw(canvas, it, backdropRect) }
     }
 
     private fun lockCanvas(): Canvas? =

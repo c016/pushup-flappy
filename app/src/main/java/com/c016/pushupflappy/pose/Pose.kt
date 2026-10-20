@@ -15,11 +15,33 @@ class Pose(val landmarks: List<Landmark>) {
     operator fun get(index: Int): Landmark = landmarks[index]
 }
 
-/** A camera frame (already rotated upright and mirrored for the front camera) and the pose found in it. */
-class PoseFrame(val image: Bitmap, val pose: Pose?, val timestampMs: Long)
+/** How likely each pixel belongs to a person, row by row, in [0, 1]. */
+class PersonMask(val width: Int, val height: Int, val values: FloatArray)
+
+/** Camera image split for display: a small image to stretch as a blur, and the person cut out sharply. */
+class CameraBackdrop(val blurred: Bitmap, val person: Bitmap)
+
+/**
+ * A camera frame (already rotated upright and mirrored for the front camera) and the pose found in
+ * it. [mask] is only present when the estimator was asked for segmentation; [backdrop] is filled in
+ * from it for display.
+ */
+class PoseFrame(
+    val image: Bitmap,
+    val pose: Pose?,
+    val timestampMs: Long,
+    val mask: PersonMask? = null,
+    val backdrop: CameraBackdrop? = null,
+) {
+    fun withBackdrop(backdrop: CameraBackdrop) = PoseFrame(image, pose, timestampMs, mask, backdrop)
+}
 
 object PoseLandmarks {
     const val NOSE = 0
+    const val LEFT_EYE = 2
+    const val RIGHT_EYE = 5
+    const val LEFT_EAR = 7
+    const val RIGHT_EAR = 8
     const val LEFT_SHOULDER = 11
     const val RIGHT_SHOULDER = 12
     const val LEFT_ELBOW = 13

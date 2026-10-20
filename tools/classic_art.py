@@ -153,3 +153,18 @@ for name,(base,shine) in {'bronze':('z','Z'),'silver':('x','X'),'gold':('q','Q')
     ellipse(g,11,11,5,5,shine); ellipse(g,11,11,4,4,base)
     save(g,f'classic_medal_{name}')
 print(sorted(os.listdir(OUT)))
+# avatar: a front-facing chick that covers the player's face
+C.update({'h':(255,170,170)})
+g=grid(26,26)
+ellipse(g,13,13.5,11.5,11.5,'y')
+ellipse(g,13,13.5,11.5,11.5,'Y',lambda x,y:y<=6)
+ellipse(g,13,13.5,11.5,11.5,'o',lambda x,y:y>=21)
+rect(g,12,0,13,2,'y'); rect(g,14,1,14,2,'y')            # tuft
+g=outline(g)
+for ex in (8,18):
+    ellipse(g,ex,11,3.2,3.6,'k'); ellipse(g,ex,11,2.3,2.7,'w'); rect(g,ex,10,ex+1,12,'k')
+ellipse(g,5.5,17,2.2,1.4,'h'); ellipse(g,20.5,17,2.2,1.4,'h')   # cheeks
+for y,(x0,x1) in enumerate([(12,13),(11,14),(10,15),(11,14),(12,13)]):
+    for x in range(x0,x1+1): g[15+y][x]='r' if y<2 else 'R'
+g=outline(g)
+save(g,'avatar_chick')

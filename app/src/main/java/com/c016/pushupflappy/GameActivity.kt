@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.c016.pushupflappy.camera.BackdropComposer
 import com.c016.pushupflappy.camera.PoseCamera
 import com.c016.pushupflappy.game.ControlMode
 import com.c016.pushupflappy.game.Difficulty
@@ -26,6 +27,7 @@ import com.c016.pushupflappy.pose.PoseEstimator
 class GameActivity : AppCompatActivity() {
 
     private lateinit var gameView: GameView
+    private lateinit var options: GameOptions
     private var estimator: PoseEstimator? = null
     private var camera: PoseCamera? = null
 
@@ -48,16 +50,21 @@ class GameActivity : AppCompatActivity() {
         }
 
         val info = GameCatalog.find(intent.getStringExtra(EXTRA_GAME_ID)) ?: GameCatalog.games.first()
+        val tapMode = intent.getBooleanExtra(EXTRA_TAP_MODE, false)
         val options = GameOptions(
             difficulty = intent.getStringExtra(EXTRA_DIFFICULTY)
                 ?.let { runCatching { Difficulty.valueOf(it) }.getOrNull() } ?: Difficulty.EASY,
-            tapMode = intent.getBooleanExtra(EXTRA_TAP_MODE, false),
+            tapMode = tapMode,
             controlMode = intent.getStringExtra(EXTRA_CONTROL_MODE)
                 ?.let { runCatching { ControlMode.valueOf(it) }.getOrNull() } ?: ControlMode.FLAP,
             theme = intent.getStringExtra(EXTRA_THEME)
                 ?.let { runCatching { VisualTheme.valueOf(it) }.getOrNull() } ?: VisualTheme.CLASSIC,
+            // Both need the camera, which tap mode does not use.
+            cameraBackdrop = !tapMode && intent.getBooleanExtra(EXTRA_CAMERA_BACKDROP, false),
+            avatar = !tapMode && intent.getBooleanExtra(EXTRA_AVATAR, false),
         )
-        gameView = GameView(this, info.create(this, options))
+        this.options = options
+        gameView = GameView(this, info.create(this, options), options)
         setContentView(gameView)
 
         if (options.tapMode) return
@@ -70,9 +77,11 @@ class GameActivity : AppCompatActivity() {
 
     private fun startPoseTracking() {
         val poseEstimator = try {
+            val composer = if (options.cameraBackdrop) BackdropComposer() else null
             MediaPipePoseEstimator(
                 context = this,
-                listener = gameView::submitFrame,
+                segmentation = options.cameraBackdrop,
+                listener = { frame -> gameView.submitFrame(composer?.compose(frame) ?: frame) },
                 onError = { e -> Log.e(TAG, "Pose estimation failed", e) },
             )
         } catch (e: Exception) {
@@ -98,5 +107,7 @@ class GameActivity : AppCompatActivity() {
         const val EXTRA_TAP_MODE = "tap_mode"
         const val EXTRA_CONTROL_MODE = "control_mode"
         const val EXTRA_THEME = "theme"
+        const val EXTRA_CAMERA_BACKDROP = "camera_backdrop"
+        const val EXTRA_AVATAR = "avatar"
     }
 }

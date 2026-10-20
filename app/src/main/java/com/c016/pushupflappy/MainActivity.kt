@@ -25,6 +25,8 @@ class MainActivity : AppCompatActivity() {
         val difficulty = findViewById<RadioGroup>(R.id.difficulty)
         val controlMode = findViewById<RadioGroup>(R.id.control_mode)
         val theme = findViewById<RadioGroup>(R.id.theme)
+        val cameraBackdrop = findViewById<CheckBox>(R.id.camera_backdrop)
+        val avatar = findViewById<CheckBox>(R.id.avatar)
         val tapMode = findViewById<CheckBox>(R.id.tap_mode)
         val density = resources.displayMetrics.density
 
@@ -43,6 +45,8 @@ class MainActivity : AppCompatActivity() {
                             .putExtra(GameActivity.EXTRA_GAME_ID, game.id)
                             .putExtra(GameActivity.EXTRA_DIFFICULTY, selected.name)
                             .putExtra(GameActivity.EXTRA_TAP_MODE, tapMode.isChecked)
+                            .putExtra(GameActivity.EXTRA_CAMERA_BACKDROP, cameraBackdrop.isChecked)
+                            .putExtra(GameActivity.EXTRA_AVATAR, avatar.isChecked)
                             .putExtra(
                                 GameActivity.EXTRA_CONTROL_MODE,
                                 if (controlMode.checkedRadioButtonId == R.id.control_linked) ControlMode.LINKED.name

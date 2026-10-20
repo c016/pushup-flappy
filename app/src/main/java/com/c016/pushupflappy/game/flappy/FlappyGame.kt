@@ -264,7 +264,8 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         val u = height.toFloat()
         aspect = width / u
 
-        skin.drawBackground(canvas, width, u, backgroundOffset)
+        // With the camera backdrop, GameView has already drawn the camera image underneath.
+        if (!options.cameraBackdrop) skin.drawBackground(canvas, width, u, backgroundOffset)
         for (o in obstacles) skin.drawObstacle(canvas, o.x, gapTop(o), gapBottom(o), u)
         skin.drawGround(canvas, width, u, groundOffset)
         for (puff in puffs) {
