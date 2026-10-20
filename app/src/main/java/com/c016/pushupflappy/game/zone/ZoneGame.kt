@@ -783,7 +783,9 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
         }
         if (state != State.GAME_OVER) {
             val visible = invulnerable <= 0f || (stateTime * 10f).toInt() % 2 == 0
-            if (visible) drawSprite(canvas, sprites.ship[frame % 2], shipX, shipY, u, flipX = direction < 0)
+            // Flap the wing up, level, down, level.
+            val wing = intArrayOf(0, 1, 2, 1)[(stateTime * WING_FPS).toInt() % 4]
+            if (visible) drawSprite(canvas, sprites.ship[wing], shipX, shipY, u, flipX = direction < 0)
         }
         for (p in pops) {
             if (p.age < 0f) continue
@@ -984,7 +986,7 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
     private fun drawCoinsAndLives(canvas: Canvas, cx: Float, y: Float, u: Float) {
         drawSpriteAtScreen(canvas, sprites.coin[0], cx / u - 0.25f, y - 0.012f, u, 1.4f)
         hud.drawText(canvas, "$coins", cx - 0.21f * u, y * u, 0.042f * u, Paint.Align.LEFT)
-        for (i in 0 until lives.coerceAtMost(6)) drawSpriteAtScreen(canvas, sprites.ship[0], cx / u + 0.08f + i * 0.085f, y - 0.012f, u, 0.55f)
+        for (i in 0 until lives.coerceAtMost(6)) drawSpriteAtScreen(canvas, sprites.ship[1], cx / u + 0.08f + i * 0.085f, y - 0.012f, u, 0.4f)
     }
 
     /** The whole loop as a bar: bases, reverse balloons, the shop and the ship with its heading. */
@@ -1062,6 +1064,7 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
 
         /** One art pixel in screen heights. */
         const val PIXEL = 0.005f
+        const val WING_FPS = 10f
 
         const val WORLD_WIDTH = 8f
         const val CLOUD_SPAN = 4f

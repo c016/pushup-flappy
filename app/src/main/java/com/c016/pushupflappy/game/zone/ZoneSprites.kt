@@ -11,8 +11,8 @@ class ZoneSprites(resources: Resources) {
 
     private fun load(id: Int): Bitmap = BitmapFactory.decodeResource(res, id)
 
-    /** Faces right; mirrored when flying left. */
-    val ship = listOf(load(R.drawable.zone_ship_1), load(R.drawable.zone_ship_2))
+    /** Wing up, level and down; faces right and is mirrored when flying left. */
+    val ship = listOf(load(R.drawable.zone_ship_1), load(R.drawable.zone_ship_2), load(R.drawable.zone_ship_3))
     val base = listOf(load(R.drawable.zone_base_1), load(R.drawable.zone_base_2))
     val puff = listOf(load(R.drawable.zone_puff_1), load(R.drawable.zone_puff_2))
 

@@ -26,7 +26,11 @@ C = {
     'a': (250, 140, 40),                                                 # feet
     't': (150, 100, 60), 'T': (110, 70, 40),                             # trunks
     'j': (90, 200, 90), 'J': (160, 240, 120), 'i': (50, 140, 70),        # leaves
-    'N': (60, 130, 80),                                                  # background outline
+    'N': (60, 130, 80),
+    'Q': (255, 130, 140), 'O': (205, 50, 75), 'U': (130, 25, 55),       # ship body reds: light, mid, shadow
+    'A': (120, 200, 255), 'C': (200, 245, 255), 'D': (60, 120, 210),    # ship window
+    'H': (235, 245, 255), 'I': (170, 200, 240),                         # feathers
+    'g2': (0, 0, 0),                                                  # background outline
     'V': (255, 205, 175), 'W': (255, 235, 215),                         # peach buds
     'x': (40, 80, 200), 'X': (90, 140, 255), 'z': (255, 90, 160), 'Z': (255, 180, 220),
 }
@@ -91,37 +95,6 @@ def eyes(g, xs, y, big=1.6):
     for x in xs:
         ellipse(g, x, y, big, big + 0.4, 'd')
         g[int(y - 1)][int(x - 1)] = 'w'
-
-
-def ship(fin_up):
-    """A round mint pod with a fin on top and a little propeller tail, facing right."""
-    g = grid(26, 24)
-    ellipse(g, 12, 12, 9, 6.5, 'm')
-    ellipse(g, 12, 11, 8, 4.5, 'M', lambda x, y: y < 10)
-    ellipse(g, 12, 15, 9, 6.5, 'n', lambda x, y: y > 16)
-    ellipse(g, 16, 11, 3.2, 2.6, 'c')
-    ellipse(g, 15.5, 10.4, 1.2, 0.9, 'w')
-    rect(g, 1, 11, 3, 13, 'y')                                        # tail rotor
-    g = outline(g)
-    # Fins flap above and below the body.
-    polygon(g, [(7, 7), (9, 0 if fin_up else 2), (14, 1 if fin_up else 3), (14, 7)], 'p', under=True)
-    polygon(g, [(7, 17), (9, 23 if not fin_up else 21), (14, 22 if not fin_up else 20), (14, 17)], 'p', under=True)
-    g = outline(g)
-    return g
-
-
-def flower_base(open_):
-    """Enemy generator: a big pastel flower whose petals open and close."""
-    g = grid(30, 30)
-    r = 13 if open_ else 11.5
-    for i, (dx, dy) in enumerate(((0, -1), (1, 0), (0, 1), (-1, 0), (.7, .7), (-.7, .7), (.7, -.7), (-.7, -.7))):
-        ellipse(g, 15 + dx * (r - 5), 15 + dy * (r - 5), 5, 5, 'p' if i < 4 else 'P')
-    ellipse(g, 15, 15, 7, 7, 'y')
-    ellipse(g, 15, 14, 5, 4, 'Y', lambda x, y: y < 13)
-    g = outline(g)
-    eyes(g, (12.5, 17.5), 15)
-    rect(g, 13, 19, 16, 19, 'q')
-    return g
 
 
 def puff(squash):
@@ -223,28 +196,6 @@ def pop(stage):
         ellipse(g, 9, 9, r * 0.45, r * 0.45, '.')
     return g
 
-
-
-def ship_v2(wing_up):
-    """White round pod with a red band, yellow wings on top and little feet, facing right."""
-    g = grid(30, 28)
-    ellipse(g, 14, 15, 10, 8.5, 'w')
-    ellipse(g, 14, 19, 10, 8.5, 'S', lambda x, y: y > 19)
-    rect(g, 4, 14, 24, 15, 'e')
-    ellipse(g, 19, 12, 3.6, 3, 'c')
-    ellipse(g, 18.3, 11.2, 1.3, 1, 'w')
-    g = outline(g)
-    # Wings behind the body: up or swept back.
-    if wing_up:
-        polygon(g, [(6, 9), (3, 1), (9, 3), (12, 8)], 'f', under=True)
-        polygon(g, [(12, 8), (12, 0), (17, 3), (17, 8)], 'F', under=True)
-    else:
-        polygon(g, [(5, 10), (0, 5), (8, 5), (12, 8)], 'f', under=True)
-        polygon(g, [(12, 8), (15, 2), (19, 5), (17, 8)], 'F', under=True)
-    # Feet.
-    rect(g, 9, 24, 11, 26, 'a')
-    rect(g, 16, 24, 18, 26, 'a')
-    return outline(g)
 
 
 def generator(lit):
@@ -399,17 +350,92 @@ def ball_plant(height):
     ellipse(g, 13, height * 0.75, 4, 2, 'j')
     return outline(g, 'N')
 
+
+def to_image(g):
+    h, w = len(g), len(g[0])
+    im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    for y in range(h):
+        for x in range(w):
+            if g[y][x] != '.':
+                im.putpixel((x, y), C[g[y][x]] + (255,))
+    return im
+
+
+def feather_wing():
+    """A wing of three scalloped feathers pointing left; its root is at the right end."""
+    g = grid(17, 11)
+    for cx, cy, rx, ry in ((4, 6, 3.6, 2.8), (8, 5.5, 3.8, 3.2), (12, 5, 3.8, 3.6)):
+        ellipse(g, cx, cy, rx, ry, 'H')
+    for cx in (4, 8, 12):
+        ellipse(g, cx, 7.2, 3.4, 1.6, 'I', lambda x, y: y >= 7)
+    ellipse(g, 12, 3.4, 2, 1, 'w')
+    g = outline(g)
+    # Lines between the feathers.
+    for x, y0 in ((6, 4), (10, 3)):
+        for y in range(y0 + 2, 9):
+            if g[y][x] != '.':
+                g[y][x] = 'I'
+    return g
+
+
+def ship_v3(wing):
+    """The player's pod: white top, red belly, big window, a flapping feathered wing and little feet.
+
+    [wing] is 0 (up), 1 (level) or 2 (down) for a three-frame flap.
+    """
+    g = grid(44, 36)
+    cx, cy = 22, 20
+    ellipse(g, cx, cy, 13, 10.5, 'w')
+    ellipse(g, cx + 4, cy - 1, 10, 7, 'S', lambda x, y: y > cy - 3 and y < cy)
+    ellipse(g, cx, cy, 13, 10.5, 'O', lambda x, y: y >= cy)
+    ellipse(g, cx, cy + 3, 13, 8, 'U', lambda x, y: y >= cy + 6)
+    ellipse(g, cx - 4, cy + 3, 5, 1.8, 'Q', lambda x, y: y >= cy + 2)
+    ellipse(g, cx - 5, cy - 6, 3, 1.6, 'H')
+    rect(g, 10, cy, 34, cy, 'R')
+    # Window.
+    ellipse(g, 29, 16, 5.5, 4.5, 'D')
+    ellipse(g, 29.3, 15.6, 4.5, 3.6, 'A')
+    ellipse(g, 28, 14.3, 1.8, 1.2, 'C')
+    g[18][32] = 'C'
+    # Nozzle at the back.
+    rect(g, 6, 18, 9, 23, 'I')
+    rect(g, 6, 18, 9, 18, 'H')
+    g = outline(g)
+    rect(g, 4, 19, 5, 22, 'y')
+    rect(g, 3, 20, 3, 21, 'F')
+    # Feet.
+    for fx in (16, 25):
+        rect(g, fx, 30, fx + 1, 31, 'U')
+        rect(g, fx - 1, 32, fx + 3, 33, 'a')
+    body = to_image(outline(g))
+
+    # The wing is rotated about its root, which sits on the body's shoulder.
+    wing_im = to_image(feather_wing())
+    layer = Image.new('RGBA', body.size, (0, 0, 0, 0))
+    root = (16, 5)                     # wing root in the wing image
+    shoulder = (20, 13)                # where it attaches on the body
+    layer.paste(wing_im, (shoulder[0] - root[0], shoulder[1] - root[1]))
+    # PIL rotates counter-clockwise, which swings a left-pointing tip downwards, so lifting
+    # the wing takes a negative angle.
+    angle = (-35, -8, 22)[wing]
+    layer = layer.rotate(angle, resample=Image.NEAREST, center=shoulder)
+    body.alpha_composite(layer)
+    return body
+
+
+def save_image(im, name):
+    im.save(os.path.join(OUT, name + '.png'))
+
 if __name__ == '__main__':
     for i in range(2):
-        save(ship(i == 0), f'zone_ship_{i + 1}')
-        save(flower_base(i == 0), f'zone_base_{i + 1}')
         save(puff(i * 1.0), f'zone_puff_{i + 1}')
         save(bee(i == 0), f'zone_bee_{i + 1}')
         save(coin(i == 1), f'zone_coin_{i + 1}')
         save(boss(i == 1), f'zone_boss_{i + 1}')
         save(heart(i == 0), f'zone_heart_{i + 1}')
+    for i in range(3):
+        save_image(ship_v3(i), f'zone_ship_{i + 1}')
     for i in range(2):
-        save(ship_v2(i == 0), f'zone_ship_{i + 1}')
         save(generator(i == 0), f'zone_base_{i + 1}')
     for i in range(3):
         save(soft_cloud(56, 32, i + 1), f'zone_cloud_{i + 1}')
