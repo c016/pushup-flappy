@@ -9,6 +9,7 @@ import com.c016.pushupflappy.game.ControlMode
 import com.c016.pushupflappy.game.Difficulty
 import com.c016.pushupflappy.game.GameOptions
 import com.c016.pushupflappy.game.MiniGame
+import com.c016.pushupflappy.game.PoseHud
 import com.c016.pushupflappy.game.VisualTheme
 import com.c016.pushupflappy.game.flappy.FlappyWorld.GROUND_Y
 import com.c016.pushupflappy.game.flappy.FlappyWorld.PLAYER_RADIUS
@@ -97,21 +98,7 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
     private var unseenSec = 0f
 
     // Paint objects are reused every frame.
-    private val shadePaint = Paint().apply { color = Color.argb(140, 0, 0, 0) }
-    private val gaugeBackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(120, 0, 0, 0) }
-    private val gaugePaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        textAlign = Paint.Align.CENTER
-        isFakeBoldText = true
-    }
-    private val textStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(40, 40, 40)
-        textAlign = Paint.Align.CENTER
-        style = Paint.Style.STROKE
-        strokeJoin = Paint.Join.ROUND
-        isFakeBoldText = true
-    }
+    private val hud = PoseHud()
     private val panelTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = skin.panelTextColor
         isFakeBoldText = true
@@ -283,36 +270,25 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
         val cx = width / 2f
         if (state == State.PLAYING) skin.drawNumber(canvas, score, cx, 0.05f * u, 0.11f * u)
 
-        val repsLabel = if (options.tapMode) "タップ操作モード" else "腕立て ${detector.reps}回"
-        textPaint.textAlign = Paint.Align.LEFT
-        textStrokePaint.textAlign = Paint.Align.LEFT
-        drawText(canvas, repsLabel, 0.04f * u, 0.09f * u, 0.055f * u)
-        drawText(canvas, "ベスト $best", 0.04f * u, 0.16f * u, 0.045f * u)
-        textPaint.textAlign = Paint.Align.CENTER
-        textStrokePaint.textAlign = Paint.Align.CENTER
-
-        if (!options.tapMode) drawGauge(canvas, u)
+        hud.drawCornerStats(canvas, u, options.tapMode, detector.reps, best)
+        if (!options.tapMode) hud.drawBodyGauge(canvas, u, detector)
 
         when {
             state == State.READY -> {
                 skin.drawTitle(canvas, FlappyTitle.GET_READY, cx, 0.24f * u, 0.11f * u)
                 val message = if (options.tapMode) "タップでスタート" else "腕立て伏せを1回するとスタート！"
-                drawText(canvas, message, cx, 0.62f * u, 0.06f * u)
+                hud.drawText(canvas, message, cx, 0.62f * u, 0.06f * u)
                 val lines = listOfNotNull(
                     when {
                         !linked -> null
                         options.tapMode -> "連動モード: ドラッグした高さに動きます"
                         else -> "連動モード: 体の高さで上下させます"
                     },
-                    hintText().takeIf { it.isNotEmpty() },
+                    hud.startHint(detector, options.tapMode),
                 )
-                lines.forEachIndexed { i, line -> drawText(canvas, line, cx, (0.7f + 0.075f * i) * u, 0.045f * u) }
+                lines.forEachIndexed { i, line -> hud.drawText(canvas, line, cx, (0.7f + 0.075f * i) * u, 0.045f * u) }
             }
-            state == State.PLAYING && isPaused() -> {
-                canvas.drawRect(0f, 0.3f * u, width.toFloat(), 0.54f * u, shadePaint)
-                drawText(canvas, "一時停止中", cx, 0.42f * u, 0.08f * u)
-                drawText(canvas, "カメラに上半身が映るようにしてください", cx, 0.5f * u, 0.05f * u)
-            }
+            state == State.PLAYING && isPaused() -> hud.drawPausedBanner(canvas, width, u)
             state == State.GAME_OVER -> drawGameOver(canvas, cx, u)
         }
     }
@@ -355,37 +331,8 @@ class FlappyGame(context: Context, private val options: GameOptions) : MiniGame 
 
         if (stateTime > RESTART_DELAY_SEC) {
             val retry = if (options.tapMode) "タップでもう一度" else "腕立て伏せ1回でもう一度"
-            drawText(canvas, retry, cx, top + panelSize + 0.09f * u, 0.055f * u)
+            hud.drawText(canvas, retry, cx, top + panelSize + 0.09f * u, 0.055f * u)
         }
-    }
-
-    private fun hintText(): String = when {
-        options.tapMode -> ""
-        !detector.bodyVisible -> "カメラに上半身が映るようにしてください"
-        detector.progress == null -> "体が映りました。腕立て伏せをしてください"
-        else -> ""
-    }
-
-    /** Vertical bar showing how far down the body currently is, so players can see detection working. */
-    private fun drawGauge(canvas: Canvas, u: Float) {
-        val left = 0.04f * u
-        val top = 0.24f * u
-        val w = 0.035f * u
-        val h = 0.4f * u
-        rect.set(left, top, left + w, top + h)
-        canvas.drawRoundRect(rect, w / 2, w / 2, gaugeBackPaint)
-        val progress = detector.progress ?: return
-        gaugePaint.color = if (detector.phase == PushUpDetector.Phase.DOWN) Color.rgb(255, 170, 40) else Color.rgb(80, 220, 120)
-        rect.set(left, top + h * (1f - progress), left + w, top + h)
-        canvas.drawRoundRect(rect, w / 2, w / 2, gaugePaint)
-    }
-
-    private fun drawText(canvas: Canvas, text: String, x: Float, y: Float, size: Float) {
-        textPaint.textSize = size
-        textStrokePaint.textSize = size
-        textStrokePaint.strokeWidth = size * 0.15f
-        canvas.drawText(text, x, y, textStrokePaint)
-        canvas.drawText(text, x, y, textPaint)
     }
 
     private companion object {

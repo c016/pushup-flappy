@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.annotation.StringRes
 import com.c016.pushupflappy.R
 import com.c016.pushupflappy.game.flappy.FlappyGame
+import com.c016.pushupflappy.game.shooter.ShooterGame
 
 class GameInfo(
     val id: String,
@@ -17,6 +18,9 @@ object GameCatalog {
     val games = listOf(
         GameInfo("flappy", R.string.game_flappy_title, R.string.game_flappy_desc) { context, options ->
             FlappyGame(context, options)
+        },
+        GameInfo("shooter", R.string.game_shooter_title, R.string.game_shooter_desc) { context, options ->
+            ShooterGame(context, options)
         },
     )
 
