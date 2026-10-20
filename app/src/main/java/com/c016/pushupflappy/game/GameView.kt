@@ -29,6 +29,7 @@ class GameView(
     private val overlay = PoseOverlay(avatar)
     private val backdropPaint = Paint(Paint.FILTER_BITMAP_FLAG)
     private val backdropRect = RectF()
+    private val dimPaint = Paint().apply { color = Color.argb(DIM_ALPHA, 0, 0, 0) }
     private val pendingTaps = AtomicInteger()
 
     /** Latest touch position as a fraction of the view height, or NaN when there is none to deliver. */
@@ -134,6 +135,7 @@ class GameView(
         backdropRect.set((w - fitW) / 2, 0f, (w + fitW) / 2, h)
         canvas.drawBitmap(backdrop.person, null, backdropRect, backdropPaint)
         frame.pose?.let { avatar?.draw(canvas, it, backdropRect) }
+        if (options.dimBackdrop) canvas.drawRect(0f, 0f, w, h, dimPaint)
     }
 
     private fun lockCanvas(): Canvas? =
@@ -142,5 +144,6 @@ class GameView(
     private companion object {
         const val MAX_STEP_SEC = 0.05f
         const val FRAME_MS = 15L
+        const val DIM_ALPHA = 110
     }
 }

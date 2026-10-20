@@ -49,6 +49,8 @@ data class GameOptions(
     val theme: VisualTheme,
     /** Show the (blurred around the player) camera image instead of the game's background. */
     val cameraBackdrop: Boolean,
+    /** Darken the camera backdrop so the game stands out against it. */
+    val dimBackdrop: Boolean,
     /** Cover the player's face with an avatar wherever the camera image is shown. */
     val avatar: Boolean,
 )

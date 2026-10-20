@@ -61,6 +61,7 @@ class GameActivity : AppCompatActivity() {
                 ?.let { runCatching { VisualTheme.valueOf(it) }.getOrNull() } ?: VisualTheme.CLASSIC,
             // Both need the camera, which tap mode does not use.
             cameraBackdrop = !tapMode && intent.getBooleanExtra(EXTRA_CAMERA_BACKDROP, false),
+            dimBackdrop = intent.getBooleanExtra(EXTRA_DIM_BACKDROP, false),
             avatar = !tapMode && intent.getBooleanExtra(EXTRA_AVATAR, false),
         )
         this.options = options
@@ -109,5 +110,6 @@ class GameActivity : AppCompatActivity() {
         const val EXTRA_THEME = "theme"
         const val EXTRA_CAMERA_BACKDROP = "camera_backdrop"
         const val EXTRA_AVATAR = "avatar"
+        const val EXTRA_DIM_BACKDROP = "dim_backdrop"
     }
 }

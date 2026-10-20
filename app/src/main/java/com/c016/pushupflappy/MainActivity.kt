@@ -26,7 +26,11 @@ class MainActivity : AppCompatActivity() {
         val controlMode = findViewById<RadioGroup>(R.id.control_mode)
         val theme = findViewById<RadioGroup>(R.id.theme)
         val cameraBackdrop = findViewById<CheckBox>(R.id.camera_backdrop)
+        val dimBackdrop = findViewById<CheckBox>(R.id.dim_backdrop)
         val avatar = findViewById<CheckBox>(R.id.avatar)
+        // Dimming only applies to the camera backdrop.
+        dimBackdrop.isEnabled = cameraBackdrop.isChecked
+        cameraBackdrop.setOnCheckedChangeListener { _, checked -> dimBackdrop.isEnabled = checked }
         val tapMode = findViewById<CheckBox>(R.id.tap_mode)
         val density = resources.displayMetrics.density
 
@@ -46,6 +50,7 @@ class MainActivity : AppCompatActivity() {
                             .putExtra(GameActivity.EXTRA_DIFFICULTY, selected.name)
                             .putExtra(GameActivity.EXTRA_TAP_MODE, tapMode.isChecked)
                             .putExtra(GameActivity.EXTRA_CAMERA_BACKDROP, cameraBackdrop.isChecked)
+                            .putExtra(GameActivity.EXTRA_DIM_BACKDROP, dimBackdrop.isChecked)
                             .putExtra(GameActivity.EXTRA_AVATAR, avatar.isChecked)
                             .putExtra(
                                 GameActivity.EXTRA_CONTROL_MODE,
