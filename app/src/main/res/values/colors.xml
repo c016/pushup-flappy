@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sky">#FF4EC0CA</color>
+    <color name="pipe">#FF5EBD3E</color>
+    <color name="bird">#FFF8D030</color>
+    <color name="background">#FF10202A</color>
+    <color name="text">#FFFFFFFF</color>
+</resources>

@@ -1,0 +1,14 @@
+*.iml
+.gradle/
+.kotlin/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/app/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+
+# Downloaded at build time by the downloadPoseModel task
+/app/src/main/assets/*.task

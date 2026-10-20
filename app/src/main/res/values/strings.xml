@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">腕立てFlappy</string>
+    <string name="menu_title">姿勢で遊ぶミニゲーム集</string>
+    <string name="menu_difficulty">難易度</string>
+    <string name="difficulty_easy">やさしい</string>
+    <string name="difficulty_normal">ふつう</string>
+    <string name="difficulty_hard">むずかしい</string>
+    <string name="menu_tap_mode">タップ操作モード（カメラを使わずに試す）</string>
+    <string name="menu_howto">遊び方: スマホを床に立てかけ、インカメラに上半身が映るようにします（顔の前に置くか、体の横に置きます）。腕立て伏せで体を下ろして上げると1回とカウントされ、鳥が羽ばたきます。</string>
+    <string name="game_flappy_title">腕立てFlappy</string>
+    <string name="game_flappy_desc">腕立て伏せ1回で鳥が羽ばたく。土管の間をくぐり抜けよう！</string>
+    <string name="camera_permission_denied">カメラの権限がないため、姿勢検知を使えません</string>
+    <string name="pose_init_failed">姿勢検知を開始できませんでした: %1$s</string>
+</resources>

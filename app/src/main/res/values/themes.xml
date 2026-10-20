@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.PushupFlappy" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">@color/pipe</item>
+        <item name="colorPrimaryDark">@color/background</item>
+        <item name="colorAccent">@color/bird</item>
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:textColor">@color/text</item>
+    </style>
+
+    <style name="Theme.PushupFlappy.Fullscreen">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+</resources>
