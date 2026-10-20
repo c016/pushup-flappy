@@ -26,6 +26,8 @@ C = {
     'a': (250, 140, 40),                                                 # feet
     't': (150, 100, 60), 'T': (110, 70, 40),                             # trunks
     'j': (90, 200, 90), 'J': (160, 240, 120), 'i': (50, 140, 70),        # leaves
+    'N': (60, 130, 80),                                                  # background outline
+    'V': (255, 205, 175), 'W': (255, 235, 215),                         # peach buds
     'x': (40, 80, 200), 'X': (90, 140, 255), 'z': (255, 90, 160), 'Z': (255, 180, 220),
 }
 
@@ -64,14 +66,14 @@ def rect(g, x0, y0, x1, y1, ch):
             g[y][x] = ch
 
 
-def outline(g):
+def outline(g, color='k'):
     h, w = len(g), len(g[0])
     out = [r[:] for r in g]
     for y in range(h):
         for x in range(w):
             if g[y][x] == '.' and any(0 <= y + dy < h and 0 <= x + dx < w and g[y + dy][x + dx] not in '.k'
                                       for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
-                out[y][x] = 'k'
+                out[y][x] = color
     return out
 
 
@@ -351,6 +353,52 @@ def hud_coin():
     ellipse(g, 6, 6, 5, 5, 'y'); ellipse(g, 6, 6, 3, 3, 'Y'); rect(g, 6, 3, 6, 8, 'o')
     return outline(g)
 
+
+def bud_stalk(height):
+    """Background plant: a tall pale stalk with rings and a peach bud on top."""
+    g = grid(20, height)
+    rect(g, 8, 12, 11, height - 1, 'G')
+    rect(g, 8, 12, 8, height - 1, 'g')
+    for y in range(18, height - 2, 9):
+        rect(g, 7, y, 12, y + 1, 'g')
+        g[y - 3][10] = 'Y'
+    ellipse(g, 10, 9, 8, 8.5, 'V')
+    ellipse(g, 10, 13, 8, 4, 'R', lambda x, y: y > 13)
+    ellipse(g, 7.5, 6, 3, 2.5, 'W')
+    for x in (5, 10, 15):
+        rect(g, x, 3, x, 6, 'R')
+    ellipse(g, 4, height * 0.6, 4, 2, 'j')
+    return outline(g, 'N')
+
+
+def flower_column(height):
+    """Background plant: a thick segmented column dotted with little flowers, crowned with petals."""
+    g = grid(24, height)
+    rect(g, 6, 10, 17, height - 1, 'M')
+    rect(g, 6, 10, 8, height - 1, 'm')
+    rect(g, 15, 10, 17, height - 1, 'm')
+    for y in range(16, height - 3, 12):
+        rect(g, 5, y, 18, y + 1, 'n')
+        for x in (9, 14):
+            ellipse(g, x, y + 6, 1.6, 1.6, 'p')
+            g[y + 6][x] = 'y'
+    for dx in (-6, 0, 6):
+        ellipse(g, 12 + dx, 7, 4.5, 4, 'p')
+    ellipse(g, 12, 6, 3.5, 3, 'y')
+    return outline(g, 'N')
+
+
+def ball_plant(height):
+    """Background plant: a thin stem with a stack of pink balls."""
+    g = grid(18, height)
+    rect(g, 8, 8, 9, height - 1, 'i')
+    for i, y in enumerate(range(8, int(height * 0.6), 13)):
+        r = 6.5 - i * 0.6
+        ellipse(g, 9, y, r, r, 'p')
+        ellipse(g, 7.5, y - 2, r * 0.4, r * 0.35, 'P')
+    ellipse(g, 13, height * 0.75, 4, 2, 'j')
+    return outline(g, 'N')
+
 if __name__ == '__main__':
     for i in range(2):
         save(ship(i == 0), f'zone_ship_{i + 1}')
@@ -372,6 +420,9 @@ if __name__ == '__main__':
     save(bush(), 'zone_bush')
     for kind in ('speed', 'wide', 'laser', 'bomb', 'life', 'exit'):
         save(icon(kind), f'zone_icon_{kind}')
+    save(bud_stalk(76), 'zone_bg_bud')
+    save(flower_column(90), 'zone_bg_column')
+    save(ball_plant(70), 'zone_bg_balls')
     save(reverse_balloon(), 'zone_reverse')
     save(shop_balloon(), 'zone_shop')
     save(bomb(), 'zone_bomb')

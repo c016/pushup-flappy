@@ -38,6 +38,9 @@ class ZoneSprites(resources: Resources) {
         load(R.drawable.zone_bush),
     )
 
+    /** Tall plants for the parallax layer behind the action. */
+    val backPlants = listOf(load(R.drawable.zone_bg_bud), load(R.drawable.zone_bg_column), load(R.drawable.zone_bg_balls))
+
     /** One icon per shop row, in [ShopItem] order followed by the exit row. */
     val shopIcons = listOf(
         load(R.drawable.zone_icon_speed),

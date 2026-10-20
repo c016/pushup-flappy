@@ -80,14 +80,33 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
         var flash = 0f
     }
 
-    /** Colours for one stage: the sky gradient, and the grass and soil of the ground. */
-    private class Palette(val sky: Int, val horizon: Int, val grass: Int, val grassLight: Int, val soil: Int, val soilDark: Int)
+    /** Colours for one stage: the sky gradient, the two mountain ranges, and the grass and soil of the ground. */
+    private class Palette(
+        val sky: Int,
+        val horizon: Int,
+        val farHill: Int,
+        val nearHill: Int,
+        val hillEdge: Int,
+        val grass: Int,
+        val grassLight: Int,
+        val soil: Int,
+        val soilDark: Int,
+    )
 
     private val palettes = listOf(
-        // Clear blue day, warm sunset, starry violet.
-        Palette(rgb(30, 90, 230), rgb(130, 195, 255), rgb(80, 200, 80), rgb(160, 240, 120), rgb(210, 150, 90), rgb(180, 120, 70)),
-        Palette(rgb(255, 110, 90), rgb(255, 215, 150), rgb(230, 140, 200), rgb(255, 200, 235), rgb(170, 110, 180), rgb(140, 85, 150)),
-        Palette(rgb(60, 30, 150), rgb(170, 130, 240), rgb(90, 200, 220), rgb(170, 245, 250), rgb(90, 90, 170), rgb(70, 70, 140)),
+        // Clear blue day over green mountains, warm sunset, starry violet.
+        Palette(
+            rgb(30, 90, 230), rgb(130, 195, 255), rgb(150, 215, 170), rgb(90, 190, 110), rgb(190, 245, 170),
+            rgb(80, 200, 80), rgb(160, 240, 120), rgb(210, 150, 90), rgb(180, 120, 70),
+        ),
+        Palette(
+            rgb(255, 110, 90), rgb(255, 215, 150), rgb(230, 170, 190), rgb(200, 120, 170), rgb(255, 210, 220),
+            rgb(230, 140, 200), rgb(255, 200, 235), rgb(170, 110, 180), rgb(140, 85, 150),
+        ),
+        Palette(
+            rgb(60, 30, 150), rgb(170, 130, 240), rgb(130, 140, 220), rgb(80, 170, 200), rgb(170, 230, 250),
+            rgb(90, 200, 220), rgb(170, 245, 250), rgb(90, 90, 170), rgb(70, 70, 140),
+        ),
     )
 
     /** Scenery placed around the loop or across a parallax band; [variant] picks the sprite. */
@@ -113,7 +132,12 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
 
     // Clouds live in parallax bands that repeat every CLOUD_SPAN; plants are fixed around the loop.
     private val farClouds = List(5) { Prop(it * CLOUD_SPAN / 5 + Random.nextFloat() * 0.3f, 0.1f + Random.nextFloat() * 0.18f, it % 3, 1.3f) }
-    private val nearClouds = List(4) { Prop(it * CLOUD_SPAN / 4 + Random.nextFloat() * 0.4f, 0.42f + Random.nextFloat() * 0.15f, it % 3, 2f) }
+    private val nearClouds = List(4) { Prop(it * CLOUD_SPAN / 4 + Random.nextFloat() * 0.4f, 0.24f + Random.nextFloat() * 0.1f, it % 3, 1.8f) }
+
+    // Tall plants between the mountains and the action, in their own parallax band.
+    private val backPlants = List(9) {
+        Prop(it * BACK_PLANT_SPAN / 9 + Random.nextFloat() * 0.25f, GROUND_Y + 0.01f, Random.nextInt(3), 1.1f + Random.nextFloat() * 0.6f)
+    }
     private val plants = List((WORLD_WIDTH / PLANT_SPACING).toInt()) {
         Prop(it * PLANT_SPACING + Random.nextFloat() * 0.15f, GROUND_Y + 0.015f, Random.nextInt(5), 0.9f + Random.nextFloat() * 0.5f)
     }
@@ -175,6 +199,11 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
     private val skyPaint = Paint()
     private var skyKey = -1
     private val groundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val hillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val hillEdgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeJoin = Paint.Join.ROUND
+    }
     private val shotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = rgb(255, 120, 180) }
     private val laserPaint = Paint().apply { color = rgb(120, 220, 255) }
     private val bulletPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = rgb(150, 90, 230) }
@@ -772,9 +801,49 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
             skyPaint.shader = LinearGradient(0f, 0f, 0f, GROUND_Y * u, p.sky, p.horizon, Shader.TileMode.CLAMP)
         }
         canvas.drawRect(0f, 0f, width.toFloat(), GROUND_Y * u, skyPaint)
-        // Two layers of fluffy clouds, the far ones drifting slower for depth.
-        drawCloudLayer(canvas, farClouds, 0.15f, u)
-        drawCloudLayer(canvas, nearClouds, 0.35f, u)
+        // Layers from far to near, each scrolling faster for depth: clouds, two mountain ranges,
+        // more clouds, then tall plants.
+        drawCloudLayer(canvas, farClouds, 0.1f, u)
+        drawHills(canvas, width, u, p.farHill, top = 0.5f, height = 0.14f, parallax = 0.15f, wavelength = 1.6f)
+        drawCloudLayer(canvas, nearClouds, 0.22f, u)
+        drawHills(canvas, width, u, p.nearHill, top = 0.6f, height = 0.12f, parallax = 0.3f, wavelength = 1.1f)
+        drawBackPlants(canvas, u)
+    }
+
+    /** A range of rounded mountains: two sine waves give uneven peaks, with a light rim on top. */
+    private fun drawHills(canvas: Canvas, width: Int, u: Float, color: Int, top: Float, height: Float, parallax: Float, wavelength: Float) {
+        val camera = (traveled - shipScreenX) * parallax
+        val k = 2f * Math.PI.toFloat() / wavelength
+        path.reset()
+        path.moveTo(0f, GROUND_Y * u)
+        var sx = 0f
+        while (sx <= width + STEP_PX) {
+            val wx = sx / u + camera
+            val shape = 0.5f + 0.32f * sin(wx * k) + 0.18f * sin(wx * k * 2.7f + 1.3f)
+            path.lineTo(sx, (top + height * (1f - shape)) * u)
+            sx += STEP_PX
+        }
+        path.lineTo(width.toFloat(), GROUND_Y * u)
+        path.close()
+        hillPaint.color = color
+        canvas.drawPath(path, hillPaint)
+        hillEdgePaint.color = palette.hillEdge
+        hillEdgePaint.strokeWidth = 0.006f * u
+        canvas.drawPath(path, hillEdgePaint)
+    }
+
+    private fun drawBackPlants(canvas: Canvas, u: Float) {
+        val camera = (traveled - shipScreenX) * BACK_PLANT_PARALLAX
+        for (p in backPlants) {
+            val bitmap = sprites.backPlants[p.variant]
+            val h = bitmap.height * PIXEL * p.scale
+            val halfW = bitmap.width * PIXEL * p.scale / 2f
+            var x = ((p.x - camera) % BACK_PLANT_SPAN + BACK_PLANT_SPAN) % BACK_PLANT_SPAN - halfW
+            while (x - halfW < aspect) {
+                drawSpriteAtScreen(canvas, bitmap, x, p.y - h / 2f, u, p.scale)
+                x += BACK_PLANT_SPAN
+            }
+        }
     }
 
     private fun drawCloudLayer(canvas: Canvas, clouds: List<Prop>, parallax: Float, u: Float) {
@@ -996,6 +1065,9 @@ class ZoneGame(context: Context, private val options: GameOptions) : MiniGame {
 
         const val WORLD_WIDTH = 8f
         const val CLOUD_SPAN = 4f
+        const val BACK_PLANT_SPAN = 5f
+        const val BACK_PLANT_PARALLAX = 0.55f
+        const val STEP_PX = 8f
         const val PLANT_SPACING = 0.45f
         const val GROUND_Y = 0.9f
         const val SHIP_RADIUS = 0.025f
