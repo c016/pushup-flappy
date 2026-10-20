@@ -6,7 +6,7 @@ import android.graphics.BitmapFactory
 import com.c016.pushupflappy.R
 
 /** Kenney "Platformer" sprites (CC0, see licenses/kenney-CC0.txt). All are 128x128 tiles. */
-class FlappySprites(resources: Resources) {
+class FlappySprites(private val resources: Resources) {
     private fun load(id: Int): Bitmap = BitmapFactory.decodeResource(resources, id)
 
     /** Faces left in the source image; drawn mirrored. */
