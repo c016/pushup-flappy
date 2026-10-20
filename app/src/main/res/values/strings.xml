@@ -22,6 +22,8 @@
     <string name="game_flappy_desc">腕立て伏せ1回で鳥が羽ばたく。土管の間をくぐり抜けよう！</string>
     <string name="game_shooter_title">腕立てシューター</string>
     <string name="game_shooter_desc">体の高さで自機を上下に動かす横スクロールシューティング。カプセルでゲージを進め、腕立てでパワーアップ！</string>
+    <string name="game_zone_title">腕立てパステルゾーン</string>
+    <string name="game_zone_desc">ループする世界を自動で進むかわいいシューティング。体の高さで上下、腕立てでボム。コインを集めてショップで強化！</string>
     <string name="camera_permission_denied">カメラの権限がないため、姿勢検知を使えません</string>
     <string name="pose_init_failed">姿勢検知を開始できませんでした: %1$s</string>
 </resources>

@@ -5,6 +5,7 @@ import androidx.annotation.StringRes
 import com.c016.pushupflappy.R
 import com.c016.pushupflappy.game.flappy.FlappyGame
 import com.c016.pushupflappy.game.shooter.ShooterGame
+import com.c016.pushupflappy.game.zone.ZoneGame
 
 class GameInfo(
     val id: String,
@@ -21,6 +22,9 @@ object GameCatalog {
         },
         GameInfo("shooter", R.string.game_shooter_title, R.string.game_shooter_desc) { context, options ->
             ShooterGame(context, options)
+        },
+        GameInfo("zone", R.string.game_zone_title, R.string.game_zone_desc) { context, options ->
+            ZoneGame(context, options)
         },
     )
 
