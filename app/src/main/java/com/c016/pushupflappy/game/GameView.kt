@@ -122,8 +122,8 @@ class GameView(
     }
 
     /**
-     * The blurred image fills the screen; the sharp person layer is fitted to the screen height so
-     * the whole body stays visible.
+     * The camera frame is shown sharp and fitted to the screen height so the whole body stays
+     * visible; a blurred copy fills the screen around it.
      */
     private fun drawBackdrop(canvas: Canvas, frame: PoseFrame?) {
         canvas.drawColor(Color.BLACK)
@@ -140,7 +140,7 @@ class GameView(
 
         val fitW = image.width * h / image.height
         backdropRect.set((w - fitW) / 2, 0f, (w + fitW) / 2, h)
-        canvas.drawBitmap(backdrop.person, null, backdropRect, backdropPaint)
+        canvas.drawBitmap(backdrop.sharp, null, backdropRect, backdropPaint)
         frame.pose?.let { avatar?.draw(canvas, it, backdropRect) }
         if (options.dimBackdrop) canvas.drawRect(0f, 0f, w, h, dimPaint)
     }

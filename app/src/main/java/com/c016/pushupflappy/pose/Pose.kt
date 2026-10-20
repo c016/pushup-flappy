@@ -15,25 +15,20 @@ class Pose(val landmarks: List<Landmark>) {
     operator fun get(index: Int): Landmark = landmarks[index]
 }
 
-/** How likely each pixel belongs to a person, row by row, in [0, 1]. */
-class PersonMask(val width: Int, val height: Int, val values: FloatArray)
-
-/** Camera image split for display: a small image to stretch as a blur, and the person cut out sharply. */
-class CameraBackdrop(val blurred: Bitmap, val person: Bitmap)
+/** Camera image prepared for display: a small copy to stretch as a blurred fill, and the sharp frame. */
+class CameraBackdrop(val blurred: Bitmap, val sharp: Bitmap)
 
 /**
  * A camera frame (already rotated upright and mirrored for the front camera) and the pose found in
- * it. [mask] is only present when the estimator was asked for segmentation; [backdrop] is filled in
- * from it for display.
+ * it. [backdrop] is filled in when the camera image is shown behind the game.
  */
 class PoseFrame(
     val image: Bitmap,
     val pose: Pose?,
     val timestampMs: Long,
-    val mask: PersonMask? = null,
     val backdrop: CameraBackdrop? = null,
 ) {
-    fun withBackdrop(backdrop: CameraBackdrop) = PoseFrame(image, pose, timestampMs, mask, backdrop)
+    fun withBackdrop(backdrop: CameraBackdrop) = PoseFrame(image, pose, timestampMs, backdrop)
 }
 
 object PoseLandmarks {

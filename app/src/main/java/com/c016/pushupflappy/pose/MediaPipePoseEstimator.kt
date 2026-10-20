@@ -4,23 +4,17 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import com.google.mediapipe.framework.image.BitmapImageBuilder
-import com.google.mediapipe.framework.image.ByteBufferExtractor
 import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.core.Delegate
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
-import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicBoolean
 
-/**
- * [PoseEstimator] backed by the MediaPipe Pose Landmarker (lite model) in live-stream mode.
- * With [segmentation] each frame also carries a [PersonMask].
- */
+/** [PoseEstimator] backed by the MediaPipe Pose Landmarker (lite model) in live-stream mode. */
 class MediaPipePoseEstimator(
     context: Context,
-    private val segmentation: Boolean,
     private val listener: (PoseFrame) -> Unit,
     private val onError: (Throwable) -> Unit,
 ) : PoseEstimator {
@@ -71,7 +65,6 @@ class MediaPipePoseEstimator(
             .setMinPoseDetectionConfidence(0.5f)
             .setMinPosePresenceConfidence(0.5f)
             .setMinTrackingConfidence(0.5f)
-            .setOutputSegmentationMasks(segmentation)
             .setResultListener(this::onResult)
             .setErrorListener { e ->
                 busy.set(false)
@@ -88,14 +81,7 @@ class MediaPipePoseEstimator(
         val pose = result.landmarks().firstOrNull()?.let { points ->
             Pose(points.map { Landmark(it.x(), it.y(), it.z(), it.visibility().orElse(0f)) })
         }
-        val mask = if (segmentation) result.segmentationMasks().orElse(null)?.firstOrNull()?.let(::toMask) else null
-        listener(PoseFrame(image, pose, result.timestampMs(), mask))
-    }
-
-    private fun toMask(image: MPImage): PersonMask {
-        val values = FloatArray(image.width * image.height)
-        ByteBufferExtractor.extract(image).order(ByteOrder.nativeOrder()).asFloatBuffer().get(values)
-        return PersonMask(image.width, image.height, values)
+        listener(PoseFrame(image, pose, result.timestampMs()))
     }
 
     companion object {

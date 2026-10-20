@@ -124,7 +124,6 @@ class GameActivity : AppCompatActivity() {
             val composer = if (options.cameraBackdrop) BackdropComposer() else null
             MediaPipePoseEstimator(
                 context = this,
-                segmentation = options.cameraBackdrop,
                 listener = { frame -> gameView.submitFrame(composer?.compose(frame) ?: frame) },
                 onError = { e -> Log.e(TAG, "Pose estimation failed", e) },
             )
